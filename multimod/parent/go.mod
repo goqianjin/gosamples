@@ -1,4 +1,4 @@
-module parent
+module github.com/goqianjin/gosamples/multimod/parent
 
 go 1.17
 
