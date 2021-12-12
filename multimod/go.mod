@@ -1,3 +1,3 @@
-module github.com/goqianjin/gosamples/multimod
+module multimod
 
 go 1.17
