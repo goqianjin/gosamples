@@ -1,4 +1,4 @@
-module github.com/goqianjin/gosample/parent
+module parent
 
 go 1.17
 
