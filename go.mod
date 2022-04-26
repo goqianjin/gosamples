@@ -14,4 +14,8 @@ go 1.13
 //	gopkg.in/yaml.v2 v2.4.0 // indirect
 //)
 
-require github.com/google/uuid v1.0.0
+require (
+	github.com/google/uuid v1.0.0
+	github.com/gorilla/mux v1.8.0
+	github.com/prometheus/client_golang v1.12.0
+)

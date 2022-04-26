@@ -1,0 +1,122 @@
+definitions:
+  main.SwaggerIssue:
+    properties:
+      company:
+        type: string
+      token:
+        type: string
+    type: object
+info:
+  contact: {}
+paths:
+  /v/1/accounts:
+    get:
+      consumes:
+      - application/json
+      description: 查询所有用户帐号
+      parameters:
+      - description: 命名空间
+        in: header
+        name: X-Namespace
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 帐号的数组
+          schema:
+            type: anrry
+      summary: 查询所有用户帐号
+      tags:
+      - Account
+    post:
+      consumes:
+      - application/json
+      description: 添加用户帐号、用户注册
+      parameters:
+      - description: 命名空间
+        in: header
+        name: X-Namespace
+        required: true
+        type: string
+      - default: admin
+        description: 用户名
+        in: body
+        name: name
+        required: true
+        schema:
+          type: string
+      - description: 密码
+        in: formData
+        name: password
+        required: true
+        type: string
+      - description: 邮箱帐号
+        in: formData
+        name: email
+        required: true
+        type: string
+      - description: 命名空间
+        in: formData
+        name: company
+        required: true
+        type: string
+      - description: 用户帐号的状态
+        enum:
+        - Active
+        - Disabled
+        in: formData
+        name: status
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "204":
+          description: No Content
+      summary: 添加用户帐号(注册)
+      tags:
+      - Account
+  /v/1/issue:
+    post:
+      consumes:
+      - application/json
+      description: 用户登录
+      parameters:
+      - description: 命名空间
+        in: header
+        name: X-Namespace
+        required: true
+        type: string
+      - default: Vince
+        description: The authentication realm.
+        in: body
+        name: realm
+        required: true
+        schema:
+          type: string
+      - default: admin
+        description: 用户名
+        in: body
+        name: name
+        required: true
+        schema:
+          type: string
+      - description: 密码
+        in: body
+        name: password
+        required: true
+        schema:
+          type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: 命名空间和token
+          schema:
+            $ref: '#/definitions/main.SwaggerIssue'
+      summary: 用户登录
+      tags:
+      - Issue
+swagger: "2.0"

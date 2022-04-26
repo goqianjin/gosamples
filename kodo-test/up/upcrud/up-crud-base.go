@@ -1,0 +1,5 @@
+package upcrud
+
+func Delete() {
+
+}
