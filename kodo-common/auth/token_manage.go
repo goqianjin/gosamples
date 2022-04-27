@@ -8,6 +8,7 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/qianjin/kodo-common/authkey"
 	"github.com/qiniu/go-sdk/v7/auth"
 )
 
@@ -21,14 +22,15 @@ const (
 )
 
 type ManagedTokenGenerator struct {
-	*authKey
+	*authkey.AuthKey
+	signType SignType
 
 	// extra for admin sign
 	suInfo string
 }
 
 func (k *ManagedTokenGenerator) WithSignType(signType SignType) *ManagedTokenGenerator {
-	k.authKey.WithSignType(signType)
+	k.signType = signType
 	return k
 }
 
@@ -37,12 +39,12 @@ func (k *ManagedTokenGenerator) WithSuInfo(uid, appId uint32) *ManagedTokenGener
 	return k
 }
 
-func NewManagedTokenGeneratorByKey(authKey *authKey) *ManagedTokenGenerator {
-	return &ManagedTokenGenerator{authKey: authKey}
+func NewManagedTokenGeneratorByKey(authKey *authkey.AuthKey) *ManagedTokenGenerator {
+	return &ManagedTokenGenerator{AuthKey: authKey}
 }
 
 func NewManagedTokenGenerator(ak, sk string) *ManagedTokenGenerator {
-	return &ManagedTokenGenerator{authKey: &authKey{ak: ak, sk: sk}}
+	return &ManagedTokenGenerator{AuthKey: &authkey.AuthKey{AK: ak, SK: sk}}
 }
 
 func (k *ManagedTokenGenerator) GenerateToken(req *http.Request) string {
@@ -104,7 +106,7 @@ func (k *ManagedTokenGenerator) generateToken(req *http.Request) string {
 	}
 	// step 2:
 	//hmac ,use sha1
-	mac := auth.New(k.ak, k.sk)
+	mac := auth.New(k.AK, k.SK)
 	token := mac.Sign([]byte(data))
 	// step 3:
 	// fmt.Printf("generated token: " + token)
@@ -112,7 +114,7 @@ func (k *ManagedTokenGenerator) generateToken(req *http.Request) string {
 }
 
 // 判断Body是否应该计入签名: QBox & QBoxAdmin
-func (k *authKey) incBody4QBox(req *http.Request) bool {
+func (k *ManagedTokenGenerator) incBody4QBox(req *http.Request) bool {
 
 	if req.Body == nil || req.ContentLength == 0 {
 		return false
@@ -127,12 +129,12 @@ func (k *authKey) incBody4QBox(req *http.Request) bool {
 }
 
 // 判断Body是否应该计入签名: Qiniu & QiniuAdmin
-func (k *authKey) incBody4Qiniu(req *http.Request, ctType string) bool {
+func (k *ManagedTokenGenerator) incBody4Qiniu(req *http.Request, ctType string) bool {
 
 	return req.ContentLength != 0 && req.Body != nil && ctType != "" && ctType != "application/octet-stream"
 }
 
-func (k *authKey) signQiniuHeaderValues(header map[string][]string, data string) string {
+func (k *ManagedTokenGenerator) signQiniuHeaderValues(header map[string][]string, data string) string {
 	var keys []string
 	for key := range header {
 		if len(key) > len(qiniuHeaderPrefix) && key[:len(qiniuHeaderPrefix)] == qiniuHeaderPrefix {

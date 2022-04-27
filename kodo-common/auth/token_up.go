@@ -4,24 +4,26 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/qianjin/kodo-common/authkey"
+
 	"github.com/qiniu/go-sdk/v7/auth"
 	"github.com/qiniu/go-sdk/v7/auth/qbox"
 	"github.com/qiniu/go-sdk/v7/storage"
 )
 
 const (
-	SignTypeUp SignType = "Up"
+	SignTypeUp SignType = "UpToken"
 )
 
 type UpTokenGenerator struct {
-	*authKey
+	*authkey.AuthKey
 	// extra for up token
 	putPolicy   *storage.PutPolicy
 	putPolicyV2 *PutPolicyV2
 }
 
 func NewUpTokenGenerator(ak, sk string) *UpTokenGenerator {
-	return &UpTokenGenerator{authKey: &authKey{ak: ak, sk: sk}}
+	return &UpTokenGenerator{AuthKey: &authkey.AuthKey{AK: ak, SK: sk}}
 }
 
 func (k *UpTokenGenerator) WithPutPolicy(putPolicy *storage.PutPolicy) *UpTokenGenerator {
@@ -35,11 +37,11 @@ func (k *UpTokenGenerator) WithPutPolicyV2(putPolicyV2 *PutPolicyV2) *UpTokenGen
 }
 
 func (k *UpTokenGenerator) GenerateToken() string {
-	return "UpToken " + k.GenerateRawToken()
+	return string(SignTypeUp) + " " + k.GenerateRawToken()
 }
 
 func (k *UpTokenGenerator) GenerateRawToken() string {
-	mac := qbox.NewMac(k.ak, k.sk)
+	mac := qbox.NewMac(k.AK, k.SK)
 	if k.putPolicyV2 != nil {
 		return k.putPolicyV2.UploadToken(mac)
 	} else if k.putPolicy != nil {

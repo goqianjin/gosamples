@@ -6,9 +6,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/qianjin/kodo-security/kodokey"
 	"github.com/qiniu/go-sdk/v7/storage"
-
-	"github.com/qianjin/kodo-common/auth/config"
 )
 
 func TestGenerateUpToken_Dev(t *testing.T) {
@@ -22,7 +21,7 @@ func TestGenerateUpToken_Dev(t *testing.T) {
 
 	token := NewUpTokenGenerator(kodokey.Dev_AK_general_storage_002, kodokey.Dev_SK_general_torage_002).
 		WithPutPolicy(putPolicy).
-		GenerateToken(request)
+		GenerateToken()
 	fmt.Println("Generated token: " + token)
 }
 
@@ -37,6 +36,6 @@ func TestGenerateUpToken_Prod(t *testing.T) {
 	}
 	token := NewUpTokenGenerator(kodokey.Prod_AK_shenqianjin, kodokey.Prod_SK_shenqianjin).
 		WithPutPolicy(putPolicy).
-		GenerateToken(request)
+		GenerateToken()
 	fmt.Println("Generated token: " + token)
 }

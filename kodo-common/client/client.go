@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/qianjin/kodo-common/authkey"
+
 	"github.com/qianjin/kodo-common/auth"
 )
 
@@ -26,7 +28,12 @@ func NewClientWithHost(host string) *Client {
 	return client
 }
 
-func (c *Client) WithAuthKey(ak, sk string) *Client {
+func (c *Client) WithKey(key *authkey.AuthKey) *Client {
+	c.generator = auth.NewManagedTokenGenerator(key.AK, key.SK)
+	return c
+}
+
+func (c *Client) WithKeys(ak, sk string) *Client {
 	c.generator = auth.NewManagedTokenGenerator(ak, sk)
 	return c
 }
