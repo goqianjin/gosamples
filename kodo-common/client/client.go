@@ -6,11 +6,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
 	"strings"
 
-	"github.com/qianjin/kodo-common/authkey"
-
 	"github.com/qianjin/kodo-common/auth"
+	"github.com/qianjin/kodo-common/authkey"
 )
 
 type Client struct {
@@ -53,7 +53,7 @@ func (c *Client) CallWithRet(req *Req, ret interface{}) *Resp {
 	if resp != nil && len(resp.Body) > 0 {
 		fmt.Printf("Data: %s\n", string(resp.Body))
 		if err := json.Unmarshal(resp.Body, ret); err != nil {
-			fmt.Printf("failed to unmarshal resp body, err: %v", err)
+			fmt.Printf("failed to unmarshal resp body, err: %v\n", err)
 		}
 	}
 	return resp
@@ -73,7 +73,15 @@ func (c *Client) Call(req *Req) *Resp {
 		}
 	}
 	request.Header.Add("Authorization", c.generator.GenerateToken(request))
+	if DebugMode {
+		reqbytes, dumpErr := httputil.DumpRequestOut(request, true)
+		fmt.Println(string(reqbytes), dumpErr)
+	}
 	response, err := c.httpclient.Do(request)
+	if DebugMode {
+		respbytes, dumpErr := httputil.DumpResponse(response, true)
+		fmt.Println(string(respbytes), dumpErr)
+	}
 	if err != nil {
 		panic(err)
 	}

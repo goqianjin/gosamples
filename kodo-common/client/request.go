@@ -11,15 +11,34 @@ type Req struct {
 	headers  map[string][]string
 }
 
-type option func(req *Req)
+type ReqOption func(req *Req)
 
-func WithBody(bodyStr string) option {
+func WithReqBody(bodyStr string) ReqOption {
 	return func(req *Req) {
 		req.bodyStr = bodyStr
 	}
 }
+func WithReqHeader(headers map[string]string) ReqOption {
+	return func(req *Req) {
+		for key, value := range headers {
+			req.headers[key] = []string{value}
+		}
+	}
+}
+func WithReqQuery(queries map[string]string) ReqOption {
+	return func(req *Req) {
+		query := req.rawQuery
+		for key, value := range queries {
+			if query != "" {
+				query = query + "&"
+			}
+			query = query + key + "=" + value
+		}
+		req.rawQuery = query
+	}
+}
 
-func NewReq(method, path string, options ...option) *Req {
+func NewReq(method, path string, options ...ReqOption) *Req {
 	r := &Req{method: method, path: path, headers: make(map[string][]string, 0)}
 	for _, opt := range options {
 		opt(r)

@@ -14,3 +14,9 @@ const (
 
 	DefaultUcHost = "uc.qbox.me"
 )
+
+const (
+	Host_Bucket              = "uc.qbox.me"
+	Host_IO                  = "iovip.qbox.me"
+	Host_Huangdong_Up_Origin = "up.qiniup.com"
+)

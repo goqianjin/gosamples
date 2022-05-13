@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/qianjin/kodo-common/authkey"
-
 	"github.com/qiniu/go-sdk/v7/auth"
 	"github.com/qiniu/go-sdk/v7/auth/qbox"
 	"github.com/qiniu/go-sdk/v7/storage"

@@ -18,9 +18,15 @@ var (
 
 	Dev_Key_admin = AuthKey{kodokey.Dev_AK_admin, kodokey.Dev_SK_admin}
 
+	// dev IAM
+
+	Dev_Key_IAM_Parent_fansiqiong    = AuthKey{kodokey.Dev_AK_fansiqiong, kodokey.Dev_SK_fansiqiong}
+	Dev_Key_IAM_Child_shenqianjin_01 = AuthKey{kodokey.Dev_AK_IAM_CHILD_shenqianjin_01, kodokey.Dev_SK_IAM_CHILD_shenqianjin_01}
+
 	// prod user
 
 	Prod_Key_shenqianjin = AuthKey{kodokey.Prod_AK_shenqianjin, kodokey.Prod_SK_shenqianjin}
+	Prod_Key_kodolog     = AuthKey{kodokey.Prod_AK_kodolog, kodokey.Prod_SK_kodolog}
 
 	// prod admin
 

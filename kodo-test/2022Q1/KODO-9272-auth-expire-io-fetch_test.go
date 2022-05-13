@@ -1,7 +1,6 @@
 package _022Q1
 
 import (
-	"encoding/base64"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -9,13 +8,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/qianjin/kodo-sample/rs/rsmodel"
+	"github.com/qianjin/kodo-sample/io/ioconfig"
 
-	"github.com/qianjin/kodo-sample/rs/rscrud"
-
-	"github.com/qianjin/kodo-sample/up/upcrud_form"
-	"github.com/qianjin/kodo-sample/up/upmodel"
-	"github.com/qianjin/kodo-sample/up/uputil"
+	"github.com/qianjin/kodo-sample/io/iocrud"
 
 	"github.com/qianjin/kodo-common/auth"
 	"github.com/qianjin/kodo-common/authkey"
@@ -23,33 +18,23 @@ import (
 	"github.com/qianjin/kodo-common/env"
 	"github.com/qianjin/kodo-sample/bucket/bucketconfig"
 	"github.com/qianjin/kodo-sample/bucket/bucketcrud"
-	"github.com/qianjin/kodo-sample/rs/rsconfig"
-	"github.com/qianjin/kodo-sample/up/upconfig"
+	"github.com/qianjin/kodo-sample/io/iomodel"
 	"github.com/stretchr/testify/assert"
 )
 
-func TestKODO9272_ZoneProxy_RsStats_AuthExpire_MultiCases_dev(t *testing.T) {
-	rsconfig.SetupEnv("10.200.20.25:12501", "10.200.20.25:12501")
+func TestKODO9272_IOFetch_AuthExpire_MultiCases_dev(t *testing.T) {
+	ioconfig.SetupEnv("10.200.20.23:5000", "10.200.20.23:5000")
 	bucketconfig.SetupEnv("10.200.20.25:10221", "10.200.20.25:10221")
-	upconfig.SetupEnv("10.200.20.23:5010", "10.200.20.23:5010")
-	testKODO9272_RsStats_AuthExpire_MultiCases(t, authkey.Dev_Key_general_storage_011)
+	testKODO9272_IOFetch_AuthExpire_MultiCases(t, authkey.Dev_Key_general_storage_011)
 }
 
-func TestKODO9272_RsStats_AuthExpire_MultiCases_dev(t *testing.T) {
-	rsconfig.SetupEnv("10.200.20.23:9433", "10.200.20.23:9433")
-	bucketconfig.SetupEnv("10.200.20.25:10221", "10.200.20.25:10221")
-	upconfig.SetupEnv("10.200.20.23:5010", "10.200.20.23:5010")
-	testKODO9272_RsStats_AuthExpire_MultiCases(t, authkey.Dev_Key_general_storage_011)
-}
-
-func TestKODO9272_RsStats_AuthExpire_MultiCases_prod(t *testing.T) {
-	rsconfig.SetupEnv(env.DefaultRsHost, env.DefaultRsHost)
+func TestKODO9272_IOFetch_AuthExpire_MultiCases_prod(t *testing.T) {
+	ioconfig.SetupEnv(env.Host_IO, env.Host_IO)
 	bucketconfig.SetupEnv(env.DefaultUcHost, env.DefaultUcHost)
-	upconfig.SetupEnv(env.Host_Huangdong_Up_Origin, env.Host_Huangdong_Up_Origin)
-	testKODO9272_RsStats_AuthExpire_MultiCases(t, authkey.Prod_Key_kodolog)
+	testKODO9272_IOFetch_AuthExpire_MultiCases(t, authkey.Prod_Key_kodolog)
 }
 
-func testKODO9272_RsStats_AuthExpire_MultiCases(t *testing.T, authKey authkey.AuthKey) {
+func testKODO9272_IOFetch_AuthExpire_MultiCases(t *testing.T, authKey authkey.AuthKey) {
 	// prepare bucket data
 	bucketCli := client.NewClientWithHost(bucketconfig.Env.Domain).
 		WithKeys(authKey.AK, authKey.SK).WithSignType(auth.SignTypeQiniu)
@@ -61,41 +46,10 @@ func testKODO9272_RsStats_AuthExpire_MultiCases(t *testing.T, authKey authkey.Au
 		assert.Equal(t, http.StatusOK, deleteBucketResp.StatusCode)
 	}()
 
-	// prepare file
-	size1M := 1024 * 1024
-	key := "test01.txt-" + time.Now().Format("20060102150405")
-	putPolicyV2 := &auth.PutPolicyV2{Scope: bucket, InsertOnly: 1}
-	upCli := client.NewUpClientWithHost(upconfig.Env.Domain).
-		WithAuthKey(authKey.AK, authKey.SK).
-		WithPutPolicyV2(putPolicyV2)
-	token := auth.NewUpTokenGenerator(authKey.AK, authKey.SK).
-		WithPutPolicyV2(putPolicyV2).GenerateRawToken()
-	uploadRespBody, uploadResp := upcrud_form.FormUpload(upCli, uputil.NewRandomBody(size1M), upmodel.FormUploadReq{
-		Key:         key,
-		FileSize:    int64(size1M),
-		UploadToken: token,
-	})
-	assert.True(t, uploadResp.Err == nil)
-	assert.True(t, &uploadRespBody != nil)
-	assert.True(t, uploadRespBody.Key == key)
-	defer func() {
-		rsCli := client.NewClientWithHost(rsconfig.Env.Domain).
-			WithKeys(authKey.AK, authKey.SK).WithSignType(auth.SignTypeQiniu)
-		_, deleteResp := rscrud.DeleteObject(rsCli, rsmodel.DeleteObjectReq{Bucket: bucket, Key: key})
-		assert.Equal(t, http.StatusOK, deleteResp.StatusCode)
-	}()
-
-	// rs stats
-	fmt.Println("bucket: " + bucket + ", key: " + key)
-	path := "/stat/" + base64.URLEncoding.EncodeToString([]byte(bucket+":"+key))
-	cli := client.NewClientWithHost(rsconfig.Env.Domain).
+	// io fetch
+	cli := client.NewClientWithHost(ioconfig.Env.Domain).
 		WithKeys(authKey.AK, authKey.SK).
 		WithSignType(auth.SignTypeQiniu)
-	req := client.NewReq(http.MethodPost, path).
-		RawQuery("").
-		AddHeader("Host", rsconfig.Env.Host).
-		AddHeader("Content-Type", "application/x-www-form-urlencoded").
-		BodyStr("")
 
 	type UserCase struct {
 		subject        string
@@ -171,31 +125,28 @@ func testKODO9272_RsStats_AuthExpire_MultiCases(t *testing.T, authKey authkey.Au
 			headerXDate: time10MinsFromNow, headerXExpires: time10MinsBeforeNow, expectedCode: 403, expectedErr: "token is expired", queryXDate: time20MinsFromNow},
 	}
 	for _, c := range cases {
-		copiedReq := req.DeepClone()
+		key := "test01.txt-" + time.Now().Format("20060102150405")
+		req := iomodel.FetchReq{
+			Bucket: bucket,
+			Key:    key,
+			ResURL: "https://file-examples.com/wp-content/uploads/2017/02/file_example_JSON_1kb.json",
+		}
+		headers := make(map[string]string)
 		if c.headerXDate != "" {
-			copiedReq.SetHeader("X-Qiniu-Date", c.headerXDate)
+			headers["X-Qiniu-Date"] = c.headerXDate
 		}
 		if c.headerXExpires != "" {
-			copiedReq.SetHeader("X-Qiniu-Expires", c.headerXExpires)
+			headers["X-Qiniu-Expires"] = c.headerXExpires
 		}
 		// query
-		query := copiedReq.GetRawQuery()
+		queries := make(map[string]string)
 		if c.queryXDate != "" {
-			if query != "" {
-				query = query + "&"
-			}
-			query = "X-Qiniu-Date=" + c.queryXDate
+			queries["X-Qiniu-Date="] = c.queryXDate
 		}
 		if c.queryXExpires != "" {
-			if query != "" {
-				query = query + "&"
-			}
-			query = query + "X-Qiniu-Expires=" + c.queryXExpires
+			queries["X-Qiniu-Expires="] = c.queryXExpires
 		}
-		if query != "" {
-			copiedReq.RawQuery(query)
-		}
-		resp := cli.Call(copiedReq)
+		_, resp := iocrud.Fetch(cli, req, client.WithReqHeader(headers), client.WithReqQuery(queries))
 		passed := resp.StatusCode == c.expectedCode
 		if passed && c.expectedErr != "" {
 			passed = strings.Contains(string(resp.Body), c.expectedErr)

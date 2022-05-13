@@ -49,7 +49,7 @@ func (c *UpClient) CallWithRet(req *Req, ret interface{}) *Resp {
 	if resp != nil && len(resp.Body) > 0 {
 		fmt.Printf("Data: %s\n", string(resp.Body))
 		if err := json.Unmarshal(resp.Body, ret); err != nil {
-			fmt.Printf("failed to unmarshal resp body, err: %v", err)
+			fmt.Printf("failed to unmarshal resp body, err: %v\n", err)
 		}
 	}
 	return resp

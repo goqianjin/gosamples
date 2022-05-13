@@ -8,6 +8,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
+
+	"github.com/qianjin/kodo-sample/bucket/bucketcrud"
+
 	"github.com/qianjin/kodo-common/env"
 
 	"github.com/qianjin/kodo-common/authkey"
@@ -19,29 +23,19 @@ import (
 
 func TestKODO9272_MkBucketV3_AuthExpire_MultiCases_dev(t *testing.T) {
 	bucketconfig.SetupEnv("10.200.20.25:10221", "10.200.20.25:10221")
-	testKODO9272_MkBucketV3_AuthExpire_MultiCases(t, bucketconfig.Env, authkey.Dev_Key_general_storage_011)
-
+	testKODO9272_MkBucketV3_AuthExpire_MultiCases(t, authkey.Dev_Key_general_storage_011)
 }
 
 func TestKODO9272_MkBucketV3_AuthExpire_MultiCases_prod(t *testing.T) {
 	bucketconfig.SetupEnv(env.DefaultUcHost, env.DefaultUcHost)
-	testKODO9272_MkBucketV3_AuthExpire_MultiCases(t, bucketconfig.Env, authkey.Prod_Key_shenqianjin)
-
+	testKODO9272_MkBucketV3_AuthExpire_MultiCases(t, authkey.Prod_Key_shenqianjin)
 }
-func testKODO9272_MkBucketV3_AuthExpire_MultiCases(t *testing.T, env env.EnvInfo, key authkey.AuthKey) {
-	RFC3339Nano := "20060102150405.999999999"
-	mkbucketPath := "/mkbucketv3/qianjin-%s/region/z0/nodomain/true"
-	body := ""
-	cli := client.NewClientWithHost(env.Domain).
-		WithKeys(key.AK, key.SK).
+
+func testKODO9272_MkBucketV3_AuthExpire_MultiCases(t *testing.T, authKey authkey.AuthKey) {
+	mkbucketPath := "/mkbucketv3/%s/region/z0/nodomain/true"
+	cli := client.NewClientWithHost(bucketconfig.Env.Domain).
+		WithKeys(authKey.AK, authKey.SK).
 		WithSignType(auth.SignTypeQiniu)
-	req := client.NewReq(http.MethodPost, "").
-		RawQuery("").
-		AddHeader("Host", env.Host).
-		AddHeader("Content-Type", "application/x-www-form-urlencoded").
-		BodyStr(body)
-	resp := cli.Call(req)
-	fmt.Printf("Resp: %+v\n", resp)
 
 	type UserCase struct {
 		subject        string
@@ -115,17 +109,19 @@ func testKODO9272_MkBucketV3_AuthExpire_MultiCases(t *testing.T, env env.EnvInfo
 	}
 
 	for _, c := range cases {
-		copiedReq := req.DeepClone()
-		newPath := fmt.Sprintf(mkbucketPath, strings.ReplaceAll(time.Now().Format(RFC3339Nano), ".", ""))
-		copiedReq.Path(newPath)
+		bucket := bucketconfig.GenerateBucketName()
+		req := client.NewReq(http.MethodPost, fmt.Sprintf(mkbucketPath, bucket)).
+			RawQuery("").
+			AddHeader("Host", bucketconfig.Env.Host).
+			AddHeader("Content-Type", "application/x-www-form-urlencoded")
 		if c.headerXDate != "" {
-			copiedReq.SetHeader("X-Qiniu-Date", c.headerXDate)
+			req.SetHeader("X-Qiniu-Date", c.headerXDate)
 		}
 		if c.headerXExpires != "" {
-			copiedReq.SetHeader("X-Qiniu-Expires", c.headerXExpires)
+			req.SetHeader("X-Qiniu-Expires", c.headerXExpires)
 		}
 		// query
-		query := copiedReq.GetRawQuery()
+		query := req.GetRawQuery()
 		if c.queryXDate != "" {
 			if query != "" {
 				query = query + "&"
@@ -139,11 +135,15 @@ func testKODO9272_MkBucketV3_AuthExpire_MultiCases(t *testing.T, env env.EnvInfo
 			query = query + "X-Qiniu-Expires=" + c.queryXExpires
 		}
 		if query != "" {
-			copiedReq.RawQuery(query)
+			req.RawQuery(query)
 		}
-		resp := cli.Call(copiedReq)
+		resp := cli.Call(req)
+		if resp.StatusCode == 200 {
+			deleteResp := bucketcrud.Delete(cli, bucket)
+			assert.Equal(t, http.StatusOK, deleteResp.StatusCode)
+		}
 		passed := resp.StatusCode == c.expectedCode
-		if c.expectedErr != "" {
+		if passed && c.expectedErr != "" {
 			passed = strings.Contains(string(resp.Body), c.expectedErr)
 		}
 		prefix := "【Failed】"
@@ -154,6 +154,6 @@ func testKODO9272_MkBucketV3_AuthExpire_MultiCases(t *testing.T, env env.EnvInfo
 		if resp.Err != nil {
 			errmsg = resp.Err.Error()
 		}
-		fmt.Println(prefix + "[" + c.subject + "] responseCode: " + strconv.Itoa(resp.StatusCode) + ", body: " + fmt.Sprintf("%v", resp.Body) + ", err: " + errmsg)
+		fmt.Println(prefix + "[" + c.subject + "] responseCode: " + strconv.Itoa(resp.StatusCode) + ", body: " + string(resp.Body) + ", err: " + errmsg)
 	}
 }
