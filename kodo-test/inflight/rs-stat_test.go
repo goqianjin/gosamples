@@ -16,7 +16,7 @@ import (
 )
 
 func Test_Rs_Stats_Dev(t *testing.T) {
-	rsconfig.SetupEnv(env.HostDefaultRs, env.HostDefaultRs)
+	rsconfig.SetupEnv("10.200.20.23:9433", "10.200.20.23:9433")
 	test_Rs_Stats(t, authkey.Dev_Key_general_storage_011)
 }
 

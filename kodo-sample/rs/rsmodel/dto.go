@@ -1,6 +1,6 @@
-package rspub
+package rsmodel
 
-type EntryInfoRet struct {
+type EntryInfoResp struct {
 	EncodedFh  string `	json:"fh"`
 	EncodedFh2 string `json:"fh2,omitempty"`
 	Hash       string `json:"hash"`
