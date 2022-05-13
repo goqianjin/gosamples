@@ -6,17 +6,15 @@ import (
 	"net/http"
 	"testing"
 	"time"
-	"up/upconfig"
-	"up/upcrud_partsv1"
-	"up/upmodel"
-
-	"github.com/qianjin/kodo-security/kodokey"
-
-	"github.com/qianjin/kodo-common/client"
 
 	"github.com/qianjin/kodo-common/auth"
+	"github.com/qianjin/kodo-common/client"
 	"github.com/qianjin/kodo-sample/bucket/bucketconfig"
 	"github.com/qianjin/kodo-sample/bucket/bucketcrud"
+	"github.com/qianjin/kodo-sample/up/upconfig"
+	"github.com/qianjin/kodo-sample/up/upcrud_partsv1"
+	"github.com/qianjin/kodo-sample/up/upmodel"
+	"github.com/qianjin/kodo-security/kodokey"
 	"github.com/stretchr/testify/assert"
 )
 

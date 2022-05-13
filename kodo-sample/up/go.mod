@@ -1,4 +1,4 @@
-module up
+module github.com/qianjin/kodo-sample/up
 
 go 1.17
 

@@ -30,7 +30,7 @@ func TestKODO9272_IOFetch_AuthExpire_MultiCases_dev(t *testing.T) {
 
 func TestKODO9272_IOFetch_AuthExpire_MultiCases_prod(t *testing.T) {
 	ioconfig.SetupEnv(env.Host_IO, env.Host_IO)
-	bucketconfig.SetupEnv(env.DefaultUcHost, env.DefaultUcHost)
+	bucketconfig.SetupEnv(env.HostDefaultUc, env.HostDefaultUc)
 	testKODO9272_IOFetch_AuthExpire_MultiCases(t, authkey.Prod_Key_kodolog)
 }
 

@@ -43,9 +43,9 @@ func TestKODO9272_RsStats_AuthExpire_MultiCases_dev(t *testing.T) {
 }
 
 func TestKODO9272_RsStats_AuthExpire_MultiCases_prod(t *testing.T) {
-	rsconfig.SetupEnv(env.DefaultRsHost, env.DefaultRsHost)
-	bucketconfig.SetupEnv(env.DefaultUcHost, env.DefaultUcHost)
-	upconfig.SetupEnv(env.Host_Huangdong_Up_Origin, env.Host_Huangdong_Up_Origin)
+	rsconfig.SetupEnv(env.HostDefaultRs, env.HostDefaultRs)
+	bucketconfig.SetupEnv(env.HostDefaultUc, env.HostDefaultUc)
+	upconfig.SetupEnv(env.HostZ0Up, env.HostZ0Up)
 	testKODO9272_RsStats_AuthExpire_MultiCases(t, authkey.Prod_Key_kodolog)
 }
 

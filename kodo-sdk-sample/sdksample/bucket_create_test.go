@@ -1,4 +1,4 @@
-package kodosample
+package sdksample
 
 import (
 	"fmt"

@@ -8,10 +8,10 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"up/upconfig"
-	"up/upmodel"
 
 	"github.com/qianjin/kodo-common/client"
+	"github.com/qianjin/kodo-sample/up/upconfig"
+	"github.com/qianjin/kodo-sample/up/upmodel"
 )
 
 func InitParts(cli *client.UpClient, reqBody upmodel.InitPartsReq) (respBody upmodel.InitPartsResp, resp *client.Resp) {

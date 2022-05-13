@@ -6,10 +6,10 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"up/upconfig"
-	"up/upmodel"
 
 	"github.com/qianjin/kodo-common/client"
+	"github.com/qianjin/kodo-sample/up/upconfig"
+	"github.com/qianjin/kodo-sample/up/upmodel"
 )
 
 func Mkblk(cli *client.UpClient, body io.Reader, reqBody upmodel.MkblkReq) (respBody upmodel.MkblkResp, resp *client.Resp) {

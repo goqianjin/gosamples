@@ -27,7 +27,7 @@ func TestKODO9272_MkBucketV3_AuthExpire_MultiCases_dev(t *testing.T) {
 }
 
 func TestKODO9272_MkBucketV3_AuthExpire_MultiCases_prod(t *testing.T) {
-	bucketconfig.SetupEnv(env.DefaultUcHost, env.DefaultUcHost)
+	bucketconfig.SetupEnv(env.HostDefaultUc, env.HostDefaultUc)
 	testKODO9272_MkBucketV3_AuthExpire_MultiCases(t, authkey.Prod_Key_shenqianjin)
 }
 

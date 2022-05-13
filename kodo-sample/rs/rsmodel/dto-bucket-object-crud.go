@@ -1,4 +1,4 @@
-package bucketmodel
+package rsmodel
 
 type DeleteObjectReq struct {
 	Bucket string

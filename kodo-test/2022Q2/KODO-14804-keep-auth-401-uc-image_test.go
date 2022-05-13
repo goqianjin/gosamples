@@ -24,8 +24,8 @@ func TestKODO14804_KeepAuth401_UC_Image_dev(t *testing.T) {
 }
 
 func TestKODO14804_KeepAuth401_UC_Image_prod(t *testing.T) {
-	bucketconfig.SetupEnv(env.DefaultUcHost, env.DefaultUcHost)
-	ucconfig.SetupEnv(env.DefaultUcHost, env.DefaultUcHost)
+	bucketconfig.SetupEnv(env.HostDefaultUc, env.HostDefaultUc)
+	ucconfig.SetupEnv(env.HostDefaultUc, env.HostDefaultUc)
 	testKODO14804_KeepAuth401_UC_Image(t, authkey.Dev_Key_IAM_Parent_fansiqiong, authkey.Dev_Key_IAM_Child_shenqianjin_01)
 }
 

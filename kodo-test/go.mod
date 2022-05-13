@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/qianjin/kodo-common v0.0.0
-	github.com/qiniu/go-sdk/v7 v7.12.0 // indirect
+	github.com/qiniu/go-sdk/v7 v7.12.1 // indirect
 )
 
 require golang.org/x/sync v0.0.0-20201207232520-09787c993a3a // indirect
@@ -20,13 +20,22 @@ require (
 
 replace github.com/qianjin/kodo-security v0.0.0 => ../kodo-security
 
-require github.com/qianjin/kodo-sample/bucket v0.0.0
-
 replace github.com/qianjin/kodo-sample/bucket v0.0.0 => ../kodo-sample/bucket
 
+replace github.com/qianjin/kodo-sample/bucket-uc v0.0.0 => ../kodo-sample/bucket-uc
+
+require github.com/qianjin/kodo-sample/up v0.0.0
+
+replace github.com/qianjin/kodo-sample/up v0.0.0 => ../kodo-sample/up
+
 require (
+	github.com/qianjin/kodo-sample/bucket v0.0.0
+	github.com/qianjin/kodo-sample/bucket-uc v0.0.0
+	github.com/qianjin/kodo-sample/io v0.0.0
 	github.com/qianjin/kodo-sample/rs v0.0.0
 	github.com/stretchr/testify v1.7.1
 )
 
 replace github.com/qianjin/kodo-sample/rs v0.0.0 => ../kodo-sample/rs
+
+replace github.com/qianjin/kodo-sample/io v0.0.0 => ../kodo-sample/io
