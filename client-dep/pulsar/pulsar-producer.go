@@ -20,12 +20,12 @@ func main() {
 	fmt.Println(err)
 	fmt.Println(errP)
 	fmt.Println(errC)
-	producer.Send()
+	//producer.Send()
 	producer.LastSequenceID()
 	consumer.Ack(nil)
 	consumer.ReconsumeLater(nil, time.Minute)
 	consumer.Nack(nil)
-	consumer.Nack()
+	//consumer.Nack()
 	//consumer.Ack()
 	//pulsar.ClientOptions
 

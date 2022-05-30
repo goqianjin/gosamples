@@ -8,58 +8,42 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"strings"
-
-	"github.com/qianjin/kodo-common/auth"
-	"github.com/qianjin/kodo-common/authkey"
 )
 
-type Client struct {
+type client struct {
 	httpclient *http.Client
 
-	host      string
-	generator *auth.ManagedTokenGenerator
+	host           string
+	generatorToken func(req *http.Request) string
 }
 
-func NewClientWithHost(host string) *Client {
-	client := &Client{
-		host:       host,
-		httpclient: &http.Client{},
+func newClientWithHost(host string, generatorToken func(req *http.Request) string) *client {
+	client := &client{
+		host:           host,
+		httpclient:     &http.Client{},
+		generatorToken: generatorToken,
 	}
 	return client
 }
 
-func (c *Client) WithKey(key *authkey.AuthKey) *Client {
-	c.generator = auth.NewManagedTokenGenerator(key.AK, key.SK)
-	return c
-}
-
-func (c *Client) WithKeys(ak, sk string) *Client {
-	c.generator = auth.NewManagedTokenGenerator(ak, sk)
-	return c
-}
-
-func (c *Client) WithSignType(signType auth.SignType) *Client {
-	c.generator.WithSignType(signType)
-	return c
-}
-
-func (c *Client) WithSuInfo(uid, appId uint32) *Client {
-	c.generator.WithSuInfo(uid, appId)
-	return c
-}
-
-func (c *Client) CallWithRet(req *Req, ret interface{}) *Resp {
-	resp := c.Call(req)
+func (c *client) CallWithRet(req *Req, ret interface{}, opts ...ReqOption) *Resp {
+	resp := c.Call(req, opts...)
 	if resp != nil && len(resp.Body) > 0 {
 		fmt.Printf("Data: %s\n", string(resp.Body))
-		if err := json.Unmarshal(resp.Body, ret); err != nil {
-			fmt.Printf("failed to unmarshal resp body, err: %v\n", err)
+		// 2xx才解析body
+		if resp.StatusCode/100 == 2 {
+			if err := json.Unmarshal(resp.Body, ret); err != nil {
+				fmt.Printf("failed to unmarshal resp body, err: %v\n", err)
+			}
 		}
 	}
 	return resp
 }
 
-func (c *Client) Call(req *Req) *Resp {
+func (c *client) Call(req *Req, opts ...ReqOption) *Resp {
+	for _, opt := range opts {
+		opt(req)
+	}
 	request, err := http.NewRequest(req.method, "http://"+c.host+req.path, strings.NewReader(req.bodyStr))
 	if req.rawQuery != "" {
 		request.URL.RawQuery = req.rawQuery
@@ -72,7 +56,10 @@ func (c *Client) Call(req *Req) *Resp {
 			request.Header.Add(key, v)
 		}
 	}
-	request.Header.Add("Authorization", c.generator.GenerateToken(request))
+	if c.generatorToken == nil {
+		panic("client.tokenGenerator cannot be nil")
+	}
+	request.Header.Add("Authorization", c.generatorToken(request))
 	if DebugMode {
 		reqbytes, dumpErr := httputil.DumpRequestOut(request, true)
 		fmt.Println(string(reqbytes), dumpErr)

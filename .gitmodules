@@ -1,0 +1,4 @@
+[submodule "soam/pulsar-client-go"]
+	path = soam/pulsar-client-go
+	url = https://github.com/shenqianjin/pulsar-client-go.git
+	branch = featch-nack-later-base-v0.8.1
