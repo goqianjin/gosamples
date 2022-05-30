@@ -36,7 +36,7 @@ func TestKODO9272_IOFetch_AuthExpire_MultiCases_prod(t *testing.T) {
 
 func testKODO9272_IOFetch_AuthExpire_MultiCases(t *testing.T, authKey authkey.AuthKey) {
 	// prepare bucket data
-	bucketCli := client.NewClientWithHost(bucketconfig.Env.Domain).
+	bucketCli := client.NewManageClientWithHost(bucketconfig.Env.Domain).
 		WithKeys(authKey.AK, authKey.SK).WithSignType(auth.SignTypeQiniu)
 	bucket, createBucketResp1 := bucketcrud.Create(bucketCli)
 	assert.Equal(t, http.StatusOK, createBucketResp1.StatusCode)
@@ -47,7 +47,7 @@ func testKODO9272_IOFetch_AuthExpire_MultiCases(t *testing.T, authKey authkey.Au
 	}()
 
 	// io fetch
-	cli := client.NewClientWithHost(ioconfig.Env.Domain).
+	cli := client.NewManageClientWithHost(ioconfig.Env.Domain).
 		WithKeys(authKey.AK, authKey.SK).
 		WithSignType(auth.SignTypeQiniu)
 

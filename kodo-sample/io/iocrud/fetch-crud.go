@@ -10,7 +10,7 @@ import (
 	"github.com/qianjin/kodo-sample/io/iomodel"
 )
 
-func Fetch(cli *client.Client, reqBo iomodel.FetchReq, options ...client.ReqOption) (respBo iomodel.FetchResp, resp *client.Resp) {
+func Fetch(cli *client.ManageClient, reqBo iomodel.FetchReq, options ...client.ReqOption) (respBo iomodel.FetchResp, resp *client.Resp) {
 	entry := reqBo.Bucket
 	if reqBo.Key != "" {
 		entry += ":" + reqBo.Key

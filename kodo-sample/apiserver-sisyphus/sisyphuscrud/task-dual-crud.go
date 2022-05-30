@@ -9,7 +9,7 @@ import (
 	"github.com/qianjin/kodo-common/json"
 )
 
-func CreateDualTask(cli *client.Client, reqBody sisyphusmodel.CreateDualTaskReq) (respBody sisyphusmodel.CreateDualTaskResp, resp *client.Resp) {
+func CreateDualTask(cli *client.ManageClient, reqBody sisyphusmodel.CreateDualTaskReq) (respBody sisyphusmodel.CreateDualTaskResp, resp *client.Resp) {
 	if reqBody.Name == "" {
 		reqBody.Name = sisyphusconfig.GenerateTaskName()
 	}
@@ -23,7 +23,7 @@ func CreateDualTask(cli *client.Client, reqBody sisyphusmodel.CreateDualTaskReq)
 	return
 }
 
-func QueryDualTask(cli *client.Client, reqBody sisyphusmodel.QueryDualTaskReq) (respBody sisyphusmodel.QueryDualTaskResp, resp *client.Resp) {
+func QueryDualTask(cli *client.ManageClient, reqBody sisyphusmodel.QueryDualTaskReq) (respBody sisyphusmodel.QueryDualTaskResp, resp *client.Resp) {
 	// refer storage.BucketManager{}
 
 	req := client.NewReq(http.MethodPost, "/dualsync/task/query").
@@ -36,7 +36,7 @@ func QueryDualTask(cli *client.Client, reqBody sisyphusmodel.QueryDualTaskReq) (
 	return
 }
 
-func StopDualTask(cli *client.Client, reqBody sisyphusmodel.StopDualTaskReq) (resp *client.Resp) {
+func StopDualTask(cli *client.ManageClient, reqBody sisyphusmodel.StopDualTaskReq) (resp *client.Resp) {
 	req := client.NewReq(http.MethodPost, "/dualsync/task/stop").
 		RawQuery("").
 		AddHeader("Host", sisyphusconfig.Env.Host).
@@ -47,7 +47,7 @@ func StopDualTask(cli *client.Client, reqBody sisyphusmodel.StopDualTaskReq) (re
 	return
 }
 
-func StartDualTask(cli *client.Client, reqBody sisyphusmodel.StartDualTaskReq) (resp *client.Resp) {
+func StartDualTask(cli *client.ManageClient, reqBody sisyphusmodel.StartDualTaskReq) (resp *client.Resp) {
 	req := client.NewReq(http.MethodPost, "/dualsync/task/start").
 		RawQuery("").
 		AddHeader("Host", sisyphusconfig.Env.Host).
@@ -58,7 +58,7 @@ func StartDualTask(cli *client.Client, reqBody sisyphusmodel.StartDualTaskReq) (
 	return
 }
 
-func DeleteDualTask(cli *client.Client, reqBody sisyphusmodel.DeleteDualTaskReq) (resp *client.Resp) {
+func DeleteDualTask(cli *client.ManageClient, reqBody sisyphusmodel.DeleteDualTaskReq) (resp *client.Resp) {
 	req := client.NewReq(http.MethodPost, "/dualsync/task/delete").
 		RawQuery("").
 		AddHeader("Host", sisyphusconfig.Env.Host).

@@ -32,7 +32,7 @@ func TestKODO14804_KeepAuth401_UC_Image_prod(t *testing.T) {
 func testKODO14804_KeepAuth401_UC_Image(t *testing.T, bucketAuthKey authkey.AuthKey, authKey authkey.AuthKey) {
 	siteUrl := "https://file-examples.com/storage/fef456d9a1627440e9d1c9f/2017/02/file_example_JSON_1kb.json"
 	// prepare bucket data
-	bucketCli := client.NewClientWithHost(bucketconfig.Env.Domain).
+	bucketCli := client.NewManageClientWithHost(bucketconfig.Env.Domain).
 		WithKeys(bucketAuthKey.AK, bucketAuthKey.SK).WithSignType(auth.SignTypeQiniu)
 	bucket, createBucketResp1 := bucketcrud.Create(bucketCli)
 	assert.Equal(t, http.StatusOK, createBucketResp1.StatusCode)
@@ -42,7 +42,7 @@ func testKODO14804_KeepAuth401_UC_Image(t *testing.T, bucketAuthKey authkey.Auth
 		assert.Equal(t, http.StatusOK, deleteBucketResp.StatusCode)
 	}()
 
-	ucCli := client.NewClientWithHost(bucketconfig.Env.Domain).
+	ucCli := client.NewManageClientWithHost(bucketconfig.Env.Domain).
 		WithKeys(authKey.AK, authKey.SK).WithSignType(auth.SignTypeQiniu)
 	setImageReq := ucmodel.SetImageReq{Bucket: bucket, SiteURL: siteUrl}
 	_, setImageResp := uccrud.SetImage(ucCli, setImageReq)

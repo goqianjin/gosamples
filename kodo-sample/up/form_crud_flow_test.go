@@ -21,7 +21,7 @@ func TestUpForm_BaseFlow_Dev(t *testing.T) {
 	upconfig.SetupEnv("10.200.20.23:5010", "10.200.20.23:5010")
 	bucketconfig.SetupEnv("10.200.20.25:10221", "10.200.20.25:10221")
 	// prepare bucket data
-	bucketCli := client.NewClientWithHost(bucketconfig.Env.Domain).
+	bucketCli := client.NewManageClientWithHost(bucketconfig.Env.Domain).
 		WithKeys(kodokey.Dev_AK_admin, kodokey.Dev_SK_admin).WithSignType(auth.SignTypeQiniuAdmin).WithSuInfo(kodokey.Dev_UID_general_torage_011, 0)
 	bucket, createBucketResp1 := bucketcrud.Create(bucketCli)
 	assert.Equal(t, http.StatusOK, createBucketResp1.StatusCode)

@@ -28,7 +28,7 @@ func Test_Rs_Stats_Prod(t *testing.T) {
 func test_Rs_Stats(t *testing.T, authKey authkey.AuthKey) {
 
 	// rs stats
-	cli := client.NewClientWithHost(rsconfig.Env.Domain).
+	cli := client.NewManageClientWithHost(rsconfig.Env.Domain).
 		WithKeys(authKey.AK, authKey.SK).
 		WithSignType(auth.SignTypeQiniu)
 

@@ -1,1 +1,1 @@
-## Status-oriented Adaptable Message Client
+## State-oriented Adaptable Messaging Client

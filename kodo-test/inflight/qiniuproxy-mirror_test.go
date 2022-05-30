@@ -28,7 +28,7 @@ func Test_Qiniuproxy_Mirror_Prod(t *testing.T) {
 
 func test_Qiniuproxy_Mirror(t *testing.T, authKey authkey.AuthKey) {
 
-	cli := client.NewClientWithHost(ioconfig.Env.Domain).
+	cli := client.NewManageClientWithHost(ioconfig.Env.Domain).
 		WithKeys(authKey.AK, authKey.SK).
 		WithSignType(auth.SignTypeQiniu)
 

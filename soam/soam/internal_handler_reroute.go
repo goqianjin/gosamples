@@ -5,20 +5,56 @@ import (
 	"github.com/apache/pulsar-client-go/pulsar/log"
 )
 
-type multiTopicsRouter struct {
-	*router
-	policy *ReRoutePolicy
+type rerouteHandler struct {
+	routers  map[string]*router
+	consumer *consumer
+	logger   log.Logger
 }
 
-func newMultiTopicsRouter(logger log.Logger, client pulsar.Client, policy *ReRoutePolicy) (*multiTopicsRouter, error) {
-	router, err := newRouter(logger, client, routerOption{})
-	if err == nil {
-		return nil, err
-	}
-	reRouter := &multiTopicsRouter{router: router, policy: policy}
+func newRerouteHandler(logger log.Logger, consumer *consumer) (*rerouteHandler, error) {
+	routers := make(map[string]*router)
+	reRouter := &rerouteHandler{logger: logger, consumer: consumer, routers: routers}
 	return reRouter, nil
 }
 
-func (r *multiTopicsRouter) RouteTo(message pulsar.ConsumerMessage, topic string) bool {
-	return false
+func (hd *rerouteHandler) Handle(msg pulsar.ConsumerMessage, topic string) bool {
+	if topic == "" {
+		return false
+	}
+	if _, ok := hd.routers[topic]; !ok {
+		rtOption := routerOption{Enable: true, Topic: topic}
+		rt, err := newRouter(hd.logger, hd.consumer.client, rtOption)
+		if err != nil {
+			return false
+		}
+		hd.routers[topic] = rt
+	}
+	// prepare to reroute
+	props := make(map[string]string)
+	for k, v := range msg.Properties() {
+		props[k] = v
+	}
+	// record origin information when re-route first time
+	if _, ok := props[SysPropertyOriginTopic]; !ok {
+		props[SysPropertyOriginTopic] = msg.Message.Topic()
+	}
+	if _, ok := props[SysPropertyOriginMessageID]; !ok {
+		props[SysPropertyOriginMessageID] = MessageParser.GetMessageId(msg)
+	}
+	if _, ok := props[SysPropertyOriginPublishTime]; !ok {
+		props[SysPropertyOriginPublishTime] = msg.PublishTime().Format(RFC3339TimeInSecondPattern)
+	}
+
+	producerMsg := pulsar.ProducerMessage{
+		Payload:     msg.Payload(),
+		Key:         msg.Key(),
+		OrderingKey: msg.OrderingKey(),
+		Properties:  props,
+		EventTime:   msg.EventTime(),
+	}
+	hd.routers[topic].Chan() <- &ReRouterMessage{
+		consumerMsg: msg,
+		producerMsg: producerMsg,
+	}
+	return true
 }

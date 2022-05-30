@@ -20,7 +20,7 @@ func TestDropBucketsByPrefix_Dev(t *testing.T) {
 	bucketconfig.SetupEnv("10.200.20.25:10221", "10.200.20.25:10221")
 	dropPrefix := "qianjin-bucket-2022"
 
-	cli := client.NewClientWithHost(bucketconfig.Env.Domain).
+	cli := client.NewManageClientWithHost(bucketconfig.Env.Domain).
 		WithKeys(kodokey.Dev_AK_general_storage_011, kodokey.Dev_SK_general_torage_011).
 		WithSignType(auth.SignTypeQiniu)
 

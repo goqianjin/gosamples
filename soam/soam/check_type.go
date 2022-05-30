@@ -10,7 +10,7 @@ const (
 	CheckTypePreBlocking = CheckType("PreBlocking")
 	CheckTypePreRetrying = CheckType("PreRetrying")
 	CheckTypePreDead     = CheckType("PreDead")
-	CheckTypePreReRouter = CheckType("PreReRouter")
+	CheckTypePreReRoute  = CheckType("PreReRoute")
 	CheckTypePreUpgrade  = CheckType("PreUpgrade")
 	CheckTypePreDegrade  = CheckType("PreDegrade")
 
@@ -19,15 +19,26 @@ const (
 	CheckTypePostBlocking = CheckType("PostBlocking")
 	CheckTypePostRetrying = CheckType("PostRetrying")
 	CheckTypePostDead     = CheckType("PostDead")
-	CheckTypePostReRouter = CheckType("PostReRouter")
+	CheckTypePostReRoute  = CheckType("PostReRoute")
 	CheckTypePostUpgrade  = CheckType("PostUpgrade")
 	CheckTypePostDegrade  = CheckType("PostDegrade")
 )
 
-var defaultPreCheckTypesInTurn = []CheckType{CheckTypePreDead, CheckTypePreDiscard,
-	CheckTypePreReRouter, CheckTypePreUpgrade, CheckTypePreDegrade,
+var defaultPreCheckTypesInTurn = []CheckType{CheckTypePreDiscard, CheckTypePreDead,
+	CheckTypePreReRoute, CheckTypePreUpgrade, CheckTypePreDegrade,
 	CheckTypePreBlocking, CheckTypePrePending, CheckTypePreRetrying}
 
-var DefaultPostCheckTypesInTurn = []CheckType{CheckTypePostDead, CheckTypePostDiscard,
-	CheckTypePostReRouter, CheckTypePostUpgrade, CheckTypePostDegrade,
+var DefaultPostCheckTypesInTurn = []CheckType{CheckTypePostDiscard, CheckTypePostDead,
+	CheckTypePostReRoute, CheckTypePostUpgrade, CheckTypePostDegrade,
 	CheckTypePreBlocking, CheckTypePrePending, CheckTypePostRetrying}
+
+var messageStatusToPostCheckTypeMap = map[messageStatus]CheckType{
+	MessageStatusDiscard:           CheckTypePostDiscard,
+	MessageStatusDead:              CheckTypePostDead,
+	MessageStatusNewReadyByReRoute: CheckTypePostReRoute,
+	MessageStatusNewReadyByUpgrade: CheckTypePostUpgrade,
+	MessageStatusNewReadyByDegrade: CheckTypePostDegrade,
+	MessageStatusBlocking:          CheckTypePostBlocking,
+	MessageStatusPending:           CheckTypePostPending,
+	MessageStatusRetrying:          CheckTypePostRetrying,
+}

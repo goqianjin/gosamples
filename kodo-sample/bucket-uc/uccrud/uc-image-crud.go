@@ -10,7 +10,7 @@ import (
 	"github.com/qianjin/kodo-sample/bucket-uc/ucmodel"
 )
 
-func SetImage(cli *client.Client, reqBo ucmodel.SetImageReq) (respBo ucmodel.SetImageResp, resp *client.Resp) {
+func SetImage(cli *client.ManageClient, reqBo ucmodel.SetImageReq) (respBo ucmodel.SetImageResp, resp *client.Resp) {
 	path := fmt.Sprintf("/image/%s/from/%s", reqBo.Bucket, base64.URLEncoding.EncodeToString([]byte(reqBo.SiteURL)))
 	reqQ := client.NewReq(http.MethodPost, path).
 		RawQuery("").

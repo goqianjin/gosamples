@@ -17,7 +17,7 @@ import (
 func TestCRDFlow(t *testing.T) {
 	bucketconfig.SetupEnv("10.200.20.25:10221", "10.200.20.25:10221")
 
-	cli := client.NewClientWithHost(bucketconfig.Env.Domain).
+	cli := client.NewManageClientWithHost(bucketconfig.Env.Domain).
 		//WithKeys(kodokey.Dev_AK_general_storage_011, kodokey.Dev_SK_general_torage_011).WithSignType(auth.SignTypeQiniu)
 		//WithKeys(kodokey.Dev_AK_admin, kodokey.Dev_SK_admin).WithSignType(auth.SignTypeQiniuAdmin).WithSuInfo(kodokey.Dev_UID_general_torage_011, 0)
 		//WithKeys(kodokey.Dev_AK_general_storage_011, kodokey.Dev_SK_general_torage_011).WithSignType(auth.SignTypeQBox)

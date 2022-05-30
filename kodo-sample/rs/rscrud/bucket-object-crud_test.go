@@ -17,7 +17,7 @@ import (
 func TestDeleteObject(t *testing.T) {
 	rsconfig.SetupEnv("10.200.20.23:9433", "10.200.20.23:9433")
 
-	cli := client.NewClientWithHost(rsconfig.Env.Domain).
+	cli := client.NewManageClientWithHost(rsconfig.Env.Domain).
 		WithKeys(kodokey.Dev_AK_general_storage_011, kodokey.Dev_SK_general_torage_011).
 		WithSignType(auth.SignTypeQiniu)
 

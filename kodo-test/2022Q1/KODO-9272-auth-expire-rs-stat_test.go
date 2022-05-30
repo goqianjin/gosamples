@@ -51,7 +51,7 @@ func TestKODO9272_RsStats_AuthExpire_MultiCases_prod(t *testing.T) {
 
 func testKODO9272_RsStats_AuthExpire_MultiCases(t *testing.T, authKey authkey.AuthKey) {
 	// prepare bucket data
-	bucketCli := client.NewClientWithHost(bucketconfig.Env.Domain).
+	bucketCli := client.NewManageClientWithHost(bucketconfig.Env.Domain).
 		WithKeys(authKey.AK, authKey.SK).WithSignType(auth.SignTypeQiniu)
 	bucket, createBucketResp1 := bucketcrud.Create(bucketCli)
 	assert.Equal(t, http.StatusOK, createBucketResp1.StatusCode)
@@ -79,7 +79,7 @@ func testKODO9272_RsStats_AuthExpire_MultiCases(t *testing.T, authKey authkey.Au
 	assert.True(t, &uploadRespBody != nil)
 	assert.True(t, uploadRespBody.Key == key)
 	defer func() {
-		rsCli := client.NewClientWithHost(rsconfig.Env.Domain).
+		rsCli := client.NewManageClientWithHost(rsconfig.Env.Domain).
 			WithKeys(authKey.AK, authKey.SK).WithSignType(auth.SignTypeQiniu)
 		_, deleteResp := rscrud.DeleteObject(rsCli, rsmodel.DeleteObjectReq{Bucket: bucket, Key: key})
 		assert.Equal(t, http.StatusOK, deleteResp.StatusCode)
@@ -88,7 +88,7 @@ func testKODO9272_RsStats_AuthExpire_MultiCases(t *testing.T, authKey authkey.Au
 	// rs stats
 	fmt.Println("bucket: " + bucket + ", key: " + key)
 	path := "/stat/" + base64.URLEncoding.EncodeToString([]byte(bucket+":"+key))
-	cli := client.NewClientWithHost(rsconfig.Env.Domain).
+	cli := client.NewManageClientWithHost(rsconfig.Env.Domain).
 		WithKeys(authKey.AK, authKey.SK).
 		WithSignType(auth.SignTypeQiniu)
 	req := client.NewReq(http.MethodPost, path).

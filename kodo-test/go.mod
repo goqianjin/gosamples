@@ -32,6 +32,7 @@ require (
 	github.com/qianjin/kodo-sample/bucket v0.0.0
 	github.com/qianjin/kodo-sample/bucket-uc v0.0.0
 	github.com/qianjin/kodo-sample/io v0.0.0
+	github.com/qianjin/kodo-sample/one v0.0.0
 	github.com/qianjin/kodo-sample/rs v0.0.0
 	github.com/stretchr/testify v1.7.1
 )
@@ -39,3 +40,5 @@ require (
 replace github.com/qianjin/kodo-sample/rs v0.0.0 => ../kodo-sample/rs
 
 replace github.com/qianjin/kodo-sample/io v0.0.0 => ../kodo-sample/io
+
+replace github.com/qianjin/kodo-sample/one v0.0.0 => ../kodo-sample/one

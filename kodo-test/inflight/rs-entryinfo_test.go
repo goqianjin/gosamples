@@ -28,7 +28,7 @@ func TestEntryInfo_prod(t *testing.T) {
 }
 
 func test_Rs_EntryInfo(t *testing.T, authKey authkey.AuthKey, body string) {
-	cli := client.NewClientWithHost(rsconfig.Env.Domain).
+	cli := client.NewManageClientWithHost(rsconfig.Env.Domain).
 		WithKeys(authKey.AK, authKey.SK).
 		WithSignType(auth.SignTypeQiniu)
 	req := client.NewReq(http.MethodPost, "/entryinfo").

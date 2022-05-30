@@ -33,7 +33,7 @@ func TestKODO9272_MkBucketV3_AuthExpire_MultiCases_prod(t *testing.T) {
 
 func testKODO9272_MkBucketV3_AuthExpire_MultiCases(t *testing.T, authKey authkey.AuthKey) {
 	mkbucketPath := "/mkbucketv3/%s/region/z0/nodomain/true"
-	cli := client.NewClientWithHost(bucketconfig.Env.Domain).
+	cli := client.NewManageClientWithHost(bucketconfig.Env.Domain).
 		WithKeys(authKey.AK, authKey.SK).
 		WithSignType(auth.SignTypeQiniu)
 

@@ -19,19 +19,19 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestKODO15123_TuneSwtichesDisableAuthCheckExpire_BucketDomain_ListV3_dev(t *testing.T) {
+func TestKODO15123_TuneSwitchesDisableAuthCheckExpire_BucketDomain_ListV3_dev(t *testing.T) {
 	//client.DebugMode = true
 	bucketconfig.SetupEnv("10.200.20.25:10221", "10.200.20.25:10221")
 	oneconfig.SetupEnv("10.200.20.25:23200", "10.200.20.25:23200")
-	testKODO15123_TuneSwtichesDisableAuthCheckExpire_BucketDomain_ListV3(t, authkey.Dev_Key_general_storage_011, proxyuser.ProxyUser_Dev_general_storage_011)
+	testKODO15123_TuneSwitchesDisableAuthCheckExpire_BucketDomain_ListV3(t, authkey.Dev_Key_general_storage_011, proxyuser.ProxyUser_Dev_general_storage_011)
 }
 
-func TestKODO15123_TuneSwtichesDisableAuthCheckExpire_BucketDomain_ListV3_prod(t *testing.T) {
+func TestKODO15123_TuneSwitchesDisableAuthCheckExpire_BucketDomain_ListV3_prod(t *testing.T) {
 	oneconfig.SetupEnv(env.HostDefaultUc, env.HostDefaultUc)
-	testKODO15123_TuneSwtichesDisableAuthCheckExpire_BucketDomain_ListV3(t, authkey.Prod_Key_kodolog, proxyuser.ProxyUser_Dev_general_storage_011)
+	testKODO15123_TuneSwitchesDisableAuthCheckExpire_BucketDomain_ListV3(t, authkey.Prod_Key_kodolog, proxyuser.ProxyUser_Dev_general_storage_011)
 }
 
-func testKODO15123_TuneSwtichesDisableAuthCheckExpire_BucketDomain_ListV3(t *testing.T, authKey authkey.AuthKey, user proxyuser.ProxyUser) {
+func testKODO15123_TuneSwitchesDisableAuthCheckExpire_BucketDomain_ListV3(t *testing.T, authKey authkey.AuthKey, user proxyuser.ProxyUser) {
 	// rs client
 	oneCli := client.NewProxyClientWithHost(oneconfig.Env.Domain).
 		WithProxyUser(user)

@@ -7,13 +7,12 @@ import (
 	"github.com/qianjin/kodo-common/client"
 	"github.com/qianjin/kodo-sample/bucket/bucketconfig"
 	"github.com/qianjin/kodo-sample/bucket/bucketmodel"
-	"github.com/qiniu/go-sdk/v7/storage"
 )
 
-func Create(cli *client.Client) (bucket string, resp *client.Resp) {
+func Create(cli *client.ManageClient) (bucket string, resp *client.Resp) {
 	return CreateWithOption(cli, bucketmodel.NewCreateOption().WithRegion("z0"))
 }
-func CreateWithOption(cli *client.Client, option *bucketmodel.CreateOption) (bucket string, resp *client.Resp) {
+func CreateWithOption(cli *client.ManageClient, option *bucketmodel.CreateOption) (bucket string, resp *client.Resp) {
 	pathPattern := "/mkbucketv3/%s/region/%s/nodomain/true"
 	bucket = bucketconfig.GenerateBucketName()
 
@@ -27,19 +26,24 @@ func CreateWithOption(cli *client.Client, option *bucketmodel.CreateOption) (buc
 	return
 }
 
-func Query(cli *client.Client, bucket string) (bucketInfoQ storage.BucketInfo, resp *client.Resp) {
+func Query(cli *client.ManageClient, bucket string, opts ...client.ReqOption) (respBody bucketmodel.QueryBucketResp, resp *client.Resp) {
 	// refer storage.BucketManager{}
-	reqQ := client.NewReq(http.MethodPost, "/v2/bucketInfo").
-		RawQuery(fmt.Sprintf("bucket=%s", bucket)).
+	path := fmt.Sprintf("/bucket/%s", bucket)
+	req := client.NewReq(http.MethodGet, path).
+		RawQuery("").
 		AddHeader("Host", bucketconfig.Env.Host).
 		AddHeader("Content-Type", "application/x-www-form-urlencoded").
 		BodyStr("")
 
-	resp = cli.CallWithRet(reqQ, &bucketInfoQ)
+	for _, opt := range opts {
+		opt(req)
+	}
+
+	resp = cli.CallWithRet(req, &respBody)
 	return
 }
 
-func Delete(cli *client.Client, bucket string) (resp *client.Resp) {
+func Delete(cli *client.ManageClient, bucket string) (resp *client.Resp) {
 	reqD := client.NewReq(http.MethodPost, fmt.Sprintf("/drop/%s", bucket)).
 		RawQuery("").
 		AddHeader("Host", bucketconfig.Env.Host).
@@ -50,7 +54,7 @@ func Delete(cli *client.Client, bucket string) (resp *client.Resp) {
 	return
 }
 
-func List(cli *client.Client) (buckets []string, resp *client.Resp) {
+func List(cli *client.ManageClient) (buckets []string, resp *client.Resp) {
 	req := client.NewReq(http.MethodPost, "/buckets").
 		RawQuery("share=false").
 		AddHeader("Host", bucketconfig.Env.Host).
