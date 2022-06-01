@@ -16,6 +16,10 @@ var (
 	// dev sudoers
 
 	ProxySudoer_Dev_admin = ProxyUser{Uid: kodokey.Dev_Uid_admin, Utype: UserType_Sudoers}
+
+	// prd users
+
+	ProxyUser_Prod_shenqianjin = ProxyUser{Uid: kodokey.Prod_UID_shenqianjin, Utype: UserType_Users}
 )
 
 type ProxyUser struct {
