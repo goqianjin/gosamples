@@ -11,12 +11,12 @@ import (
 
 func TestGenerate_entryInfo_AdminProd(t *testing.T) {
 	contentType := "application/x-www-form-urlencoded"
-	BodyStr := "itbl=504699156&key=fragments/z1.wypd.wypd/1631977359914-1631977367102.ts"
+	BodyStr := "itbl=658581168&key=root/.lotusminer/sealed/s-t073844-56790"
 	request, _ := http.NewRequest(http.MethodPost, "/entryinfo", strings.NewReader(BodyStr))
 	request.Header.Set("Content-Type", contentType)
-	//request.Header.Set("Host", "rs_sample-z1.qbox.me")
-	token := NewManagedTokenGenerator(kodokey.Prod_AK_admin, kodokey.Prod_SK_admin).
-		WithSignType(SignTypeQiniuAdmin).WithSuInfo(123, 0).
+	request.Header.Set("Host", "10.1.60.16:9433")
+	token := NewManagedTokenGenerator("4pg2cTBJCOtylZ3dmknhF5eu0H7jKrLNwW9GAoXM", "8A2XMTpfz5sEry7dei96mSqQcOJobwFa0vk4WKHU").
+		WithSignType(SignTypeQiniuAdmin).WithSuInfo(5, 0).
 		GenerateToken(request)
 	fmt.Println("Generated token: " + token)
 }

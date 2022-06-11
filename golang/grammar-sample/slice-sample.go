@@ -22,4 +22,13 @@ func main() {
 	fmt.Printf("s1: %v, len(s1): %v, cap(s1): %v\n", s1, len(s1), cap(s1))
 	s2 = s1[0:0]
 	fmt.Printf("s2: %v, len(s2): %v, cap(s2): %v\n", s2, len(s2), cap(s2))
+
+	strSlice := []string{"1", "2"}
+	fmt.Println(strSlice)
+
+	updateStrMapFunc := func(m []string) {
+		m[1] = "3"
+	}
+	updateStrMapFunc(strSlice)
+	fmt.Println(strSlice)
 }

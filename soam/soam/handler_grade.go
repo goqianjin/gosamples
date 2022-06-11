@@ -34,14 +34,14 @@ func (hd *gradeHandler) Handle(msg pulsar.ConsumerMessage) bool {
 		props[k] = v
 	}
 	// record origin information when re-route first time
-	if _, ok := props[SysPropertyOriginTopic]; !ok {
-		props[SysPropertyOriginTopic] = msg.Message.Topic()
+	if _, ok := props[XPropertyOriginTopic]; !ok {
+		props[XPropertyOriginTopic] = msg.Message.Topic()
 	}
-	if _, ok := props[SysPropertyOriginMessageID]; !ok {
-		props[SysPropertyOriginMessageID] = MessageParser.GetMessageId(msg)
+	if _, ok := props[XPropertyOriginMessageID]; !ok {
+		props[XPropertyOriginMessageID] = MessageParser.GetMessageId(msg)
 	}
-	if _, ok := props[SysPropertyOriginPublishTime]; !ok {
-		props[SysPropertyOriginPublishTime] = msg.PublishTime().Format(RFC3339TimeInSecondPattern)
+	if _, ok := props[XPropertyOriginPublishTime]; !ok {
+		props[XPropertyOriginPublishTime] = msg.PublishTime().Format(RFC3339TimeInSecondPattern)
 	}
 
 	producerMsg := pulsar.ProducerMessage{
@@ -51,7 +51,7 @@ func (hd *gradeHandler) Handle(msg pulsar.ConsumerMessage) bool {
 		Properties:  props,
 		EventTime:   msg.EventTime(),
 	}
-	hd.router.Chan() <- &ReRouterMessage{
+	hd.router.Chan() <- &RerouteMessage{
 		consumerMsg: msg,
 		producerMsg: producerMsg,
 	}

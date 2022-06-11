@@ -28,4 +28,16 @@ func main() {
 	u = url.QueryEscape(siteUrl)
 	fmt.Println(u)
 
+	strMap := map[string]string{
+		"a": "1",
+		"b": "2",
+	}
+	fmt.Println(strMap)
+
+	updateStrMapFunc := func(m map[string]string) {
+		m["C"] = "3"
+	}
+	updateStrMapFunc(strMap)
+	fmt.Println(strMap)
+
 }

@@ -14,15 +14,15 @@ func main() {
 	}
 	defer cli.Close()
 
-	err = cli.SubscribeInRegular(soam.ComsumerConfig{}, handleBiz,
+	err = cli.SubscribeSoam(soam.ConsumerConfig{}, handleBiz,
 		soam.PreBlockingChecker(checkQuota), soam.PrePendingChecker(checkRate))
 	if err != nil {
 		log.Fatal(err)
 	}
 }
 
-func handleBiz(message pulsar.Message) bool {
-	return true
+func handleBiz(message pulsar.Message) (bool, error) {
+	return true, nil
 }
 
 func checkRate(message pulsar.Message) bool {

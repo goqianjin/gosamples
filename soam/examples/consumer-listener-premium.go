@@ -27,11 +27,11 @@ func NewService() *service {
 	}
 	defer cli.Close()
 	// start listening
-	err = cli.SubscribeInPremium(
-		soam.ComsumerConfig{Topics: []string{"XXX-JOB", "XXX-JOB-L1", "XXX-JOB-S1"}},
+	err = cli.SubscribePremium(
+		soam.ConsumerConfig{Topics: []string{"XXX-JOB", "XXX-JOB-L1", "XXX-JOB-S1"}},
 		svc.handleMessage,
 		soam.PrePendingChecker(func(message pulsar.Message) (passed bool) {
-			return true
+			return false
 		}))
 	if err != nil {
 		log.Fatal(err)
@@ -40,13 +40,13 @@ func NewService() *service {
 	return svc
 }
 
-func (s *service) handleMessage(message pulsar.Message) soam.HandledStatus {
+func (s *service) handleMessage(message pulsar.Message) soam.HandleStatus {
 	if message.RedeliveryCount() == 1 {
-		return soam.HandleStatusDone
+		return soam.HandleStatusOk
 	} else if 1 < 3 {
-		return soam.HandleStatusRetry
+		return soam.HandleStatusFail.TransferTo(soam.MessageStatusRetrying)
 	}
-	return soam.HandleStatusRetry
+	return soam.HandleStatusFail.TransferTo(soam.MessageStatusRetrying)
 }
 
 func (s *service) checkRate(message pulsar.Message) bool {

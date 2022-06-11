@@ -35,14 +35,14 @@ func (hd *rerouteHandler) Handle(msg pulsar.ConsumerMessage, topic string) bool 
 		props[k] = v
 	}
 	// record origin information when re-route first time
-	if _, ok := props[SysPropertyOriginTopic]; !ok {
-		props[SysPropertyOriginTopic] = msg.Message.Topic()
+	if _, ok := props[XPropertyOriginTopic]; !ok {
+		props[XPropertyOriginTopic] = msg.Message.Topic()
 	}
-	if _, ok := props[SysPropertyOriginMessageID]; !ok {
-		props[SysPropertyOriginMessageID] = MessageParser.GetMessageId(msg)
+	if _, ok := props[XPropertyOriginMessageID]; !ok {
+		props[XPropertyOriginMessageID] = MessageParser.GetMessageId(msg)
 	}
-	if _, ok := props[SysPropertyOriginPublishTime]; !ok {
-		props[SysPropertyOriginPublishTime] = msg.PublishTime().Format(RFC3339TimeInSecondPattern)
+	if _, ok := props[XPropertyOriginPublishTime]; !ok {
+		props[XPropertyOriginPublishTime] = msg.PublishTime().Format(RFC3339TimeInSecondPattern)
 	}
 
 	producerMsg := pulsar.ProducerMessage{
@@ -52,7 +52,7 @@ func (hd *rerouteHandler) Handle(msg pulsar.ConsumerMessage, topic string) bool 
 		Properties:  props,
 		EventTime:   msg.EventTime(),
 	}
-	hd.routers[topic].Chan() <- &ReRouterMessage{
+	hd.routers[topic].Chan() <- &RerouteMessage{
 		consumerMsg: msg,
 		producerMsg: producerMsg,
 	}

@@ -44,7 +44,17 @@ func (c *client) Call(req *Req, opts ...ReqOption) *Resp {
 	for _, opt := range opts {
 		opt(req)
 	}
-	request, err := http.NewRequest(req.method, "http://"+c.host+req.path, strings.NewReader(req.bodyStr))
+	var request *http.Request
+	var err error
+	if req.body != nil {
+		request, err = http.NewRequest(req.method, "http://"+c.host+req.path, req.body)
+	} else {
+		request, err = http.NewRequest(req.method, "http://"+c.host+req.path, strings.NewReader(req.bodyStr))
+	}
+	if err != nil {
+		return &Resp{StatusCode: http.StatusInternalServerError, Err: errors.New("client error: " + err.Error())}
+	}
+
 	if req.rawQuery != "" {
 		request.URL.RawQuery = req.rawQuery
 	}

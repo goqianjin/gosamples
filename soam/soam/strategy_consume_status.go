@@ -49,5 +49,5 @@ func (s *randRoundConsumeStrategy) NextConsumer() int {
 	}
 	next := s.nextIndexes[0]
 	s.nextIndexes = s.nextIndexes[1:]
-	return next
+	return s.indexConsumerMap[next]
 }

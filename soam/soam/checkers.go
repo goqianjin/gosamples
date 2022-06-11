@@ -107,7 +107,7 @@ func (ch *consumeCheckers) parsePostRerouteChecker(checkType CheckType, checkpoi
 	return nilPostReRouterChecker
 }
 
-func (ch *consumeCheckers) tryPreCheckInTurn(msg pulsar.ConsumerMessage, checkTypes ...CheckType) (routed bool) {
+func (ch *consumeCheckers) tryPreCheckToHandleInTurn(msg pulsar.ConsumerMessage, checkTypes ...CheckType) (handled bool) {
 	for _, checkType := range checkTypes {
 		switch checkType {
 		case CheckTypePreDiscard:
@@ -123,11 +123,11 @@ func (ch *consumeCheckers) tryPreCheckInTurn(msg pulsar.ConsumerMessage, checkTy
 				return true
 			}
 		case CheckTypePreUpgrade:
-			if ok := ch.internalCheckToRouteMsg(msg, ch.config.UpgradeEnable, ch.preUpgradeChecker, ch.consumer.handlers.upgradeReRouter); ok {
+			if ok := ch.internalCheckToRouteMsg(msg, ch.config.UpgradeEnable, ch.preUpgradeChecker, ch.consumer.handlers.upgradeHandler); ok {
 				return true
 			}
 		case CheckTypePreDegrade:
-			if ok := ch.internalCheckToRouteMsg(msg, ch.config.DegradeEnable, ch.preDegradeChecker, ch.consumer.handlers.degradeReRouter); ok {
+			if ok := ch.internalCheckToRouteMsg(msg, ch.config.DegradeEnable, ch.preDegradeChecker, ch.consumer.handlers.degradeHandler); ok {
 				return true
 			}
 		case CheckTypePreBlocking:
@@ -163,11 +163,11 @@ func (ch *consumeCheckers) tryPostCheckInTurn(msg pulsar.ConsumerMessage, err er
 				return true
 			}
 		case CheckTypePostUpgrade:
-			if ok := ch.internalCheckToRouteMsgWithErr(msg, err, ch.config.UpgradeEnable, ch.postUpgradeChecker, ch.consumer.handlers.upgradeReRouter); ok {
+			if ok := ch.internalCheckToRouteMsgWithErr(msg, err, ch.config.UpgradeEnable, ch.postUpgradeChecker, ch.consumer.handlers.upgradeHandler); ok {
 				return true
 			}
 		case CheckTypePostDegrade:
-			if ok := ch.internalCheckToRouteMsgWithErr(msg, err, ch.config.DegradeEnable, ch.postDegradeChecker, ch.consumer.handlers.degradeReRouter); ok {
+			if ok := ch.internalCheckToRouteMsgWithErr(msg, err, ch.config.DegradeEnable, ch.postDegradeChecker, ch.consumer.handlers.degradeHandler); ok {
 				return true
 			}
 		case CheckTypePostBlocking:

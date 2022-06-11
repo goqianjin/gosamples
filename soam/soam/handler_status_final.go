@@ -27,11 +27,11 @@ func (h *finalStatusHandler) Handle(message pulsar.ConsumerMessage) (success boo
 	switch h.status {
 	case MessageStatusDone:
 		message.Consumer.Ack(message.Message)
-		h.logger.Warnf("Handle message")
+		h.logger.Warnf("Handle message: done")
 		return true
 	case MessageStatusDiscard:
 		message.Consumer.Ack(message.Message)
-		h.logger.Warnf("Handle message")
+		h.logger.Warnf("Handle message: discard")
 		return true
 	}
 	return false
