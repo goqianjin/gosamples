@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"strconv"
@@ -85,13 +86,15 @@ func CompleteParts(cli *client.UpClient, reqBody upmodel.CompletePartsReq) (resp
 	if err != nil {
 		return
 	}
+	fmt.Println(string(bytesBody))
 
 	req := client.NewReq(http.MethodPost, path).
 		RawQuery("").
 		AddHeader("Host", upconfig.Env.Host).
 		AddHeader("Content-Type", "application/json").
-		AddHeader("Content-Length", string(len(bytesBody))).
-		Body(bytes.NewReader(bytesBody))
+		//AddHeader("Content-Length", string(len(bytesBody))).
+		//Body(bytes.NewReader(bytesBody))
+		BodyStr(string(bytesBody))
 	resp = cli.CallWithRet(req, &respBody)
 	return
 }

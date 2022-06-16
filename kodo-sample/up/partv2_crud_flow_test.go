@@ -6,14 +6,12 @@ import (
 	"crypto/rand"
 	"fmt"
 	"log"
-	"net/http"
 	"testing"
 	"time"
 
 	"github.com/qianjin/kodo-common/auth"
 	"github.com/qianjin/kodo-common/client"
 	"github.com/qianjin/kodo-sample/bucket/bucketconfig"
-	"github.com/qianjin/kodo-sample/bucket/bucketcrud"
 	"github.com/qianjin/kodo-sample/up/upconfig"
 	"github.com/qianjin/kodo-sample/up/upcrud_partsv2"
 	"github.com/qianjin/kodo-sample/up/upmodel"
@@ -27,13 +25,13 @@ func TestUpPartsV2_BaseFlow_Dev(t *testing.T) {
 	// prepare bucket data
 	bucketCli := client.NewManageClientWithHost(bucketconfig.Env.Domain).
 		//WithKeys(kodokey.Dev_AK_general_storage_011, kodokey.Dev_SK_general_torage_011).WithSignType(auth.SignTypeQiniu)
-		WithKeys(kodokey.Dev_AK_admin, kodokey.Dev_SK_admin).WithSignType(auth.SignTypeQiniuAdmin).WithSuInfo(kodokey.Dev_UID_general_torage_011, 0)
+		WithKeys(kodokey.Dev_AK_admin, kodokey.Dev_SK_admin).WithSignType(auth.SignTypeQiniuAdmin).WithSuInfo(kodokey.Dev_UID_storageuser1, 0)
 	//WithKeys(kodokey.Dev_AK_general_storage_011, kodokey.Dev_SK_general_torage_011).WithSignType(auth.SignTypeQBox)
 	//WithKeys(kodokey.Dev_AK_admin, kodokey.Dev_SK_admin).WithSignType(auth.SignTypeQBoxAdmin).WithSuInfo(kodokey.Dev_UID_general_torage_011, 0)
-	bucket, createBucketResp1 := bucketcrud.Create(bucketCli)
-	assert.Equal(t, http.StatusOK, createBucketResp1.StatusCode)
+	bucket := "qianjin-bucket-20220610232813543234"
+	fmt.Println(bucketCli)
 	assert.NotNil(t, bucket)
-	defer bucketcrud.Delete(bucketCli, bucket)
+	//defer bucketcrud.Delete(bucketCli, bucket)
 
 	// 打开sdk 日志
 	client.DebugMode = true
@@ -46,7 +44,8 @@ func TestUpPartsV2_BaseFlow_Dev(t *testing.T) {
 		ForceInsertOnly: true,
 	}
 	upCli := client.NewUpClientWithHost(upconfig.Env.Domain).
-		WithAuthKey(kodokey.Dev_AK_general_storage_011, kodokey.Dev_SK_general_torage_011).
+		//WithAuthKey(kodokey.Dev_AK_general_storage_011, kodokey.Dev_SK_general_torage_011).
+		WithAuthKey(kodokey.Dev_AK_storageuser1, kodokey.Dev_SK_storageuser1).
 		WithPutPolicyV2(putPolicy2)
 
 	// 初始化: 肯定会成功
@@ -55,14 +54,17 @@ func TestUpPartsV2_BaseFlow_Dev(t *testing.T) {
 	assert.True(t, &initRespBody != nil)
 	assert.True(t, initRespBody.UploadID != "")
 	// 分片上传: 传3片,每次上传1M+300b的随机数据
-	partSize := 3
-	data0 := make([]byte, 1024*1024+300) // 每次上传1M+300b的随机数据(非最后一片)
+	partTotal := 3
+	partLength := 1024*1024 + 300 // 每次上传1M+300b的随机数据(非最后一片)
+	data0 := make([]byte, partLength)
 	// call upload part
 	var progresses []upmodel.UploadPartInfo
-	for i := 1; i <= partSize; i++ {
+	for i := 1; i <= partTotal; i++ {
 		var data []byte
-		if i != partSize {
+		if i != partTotal {
 			n, err := rand.Read(data0)
+			assert.True(t, n == partLength)
+			assert.True(t, n == len(data0))
 			log.Printf("n = %v, err: %v\n", n, err)
 			data = data0
 		} else {
