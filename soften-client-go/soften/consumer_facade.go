@@ -47,8 +47,8 @@ func (c *consumeFacade) formatGeneralHandlersOptions(topic string, config *confi
 	return options
 }
 
-func (c *consumeFacade) formatLeveledHandlersOptions(levelTopic string, config *config.ConsumerConfig) levelConsumeHandlerOptions {
-	options := levelConsumeHandlerOptions{
+func (c *consumeFacade) formatLeveledHandlersOptions(levelTopic string, config *config.ConsumerConfig) leveledConsumeHandlerOptions {
+	options := leveledConsumeHandlerOptions{
 		Topic:             levelTopic,
 		BlockingEnable:    config.BlockingEnable,
 		Blocking:          config.Blocking,

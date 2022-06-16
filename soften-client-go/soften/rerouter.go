@@ -10,52 +10,56 @@ import (
 	"github.com/shenqianjin/soften-client-go/soften/internal/backoff"
 )
 
-// ------ base router ------
+// ------ base reRouter ------
 
-type routerOption struct {
-	Topic         string
-	Enable        bool
-	MaxDeliveries uint
+type reRouterOptions struct {
+	Enable              bool
+	Topic               string
+	connectInSyncEnable bool
+	//MaxDeliveries uint
 }
 
-type router struct {
+type reRouter struct {
 	client    pulsar.Client
 	producer  pulsar.Producer
-	option    routerOption
+	option    reRouterOptions
 	messageCh chan *RerouteMessage
 	closeCh   chan interface{}
 	log       log.Logger
 }
 
-func newRouter(logger log.Logger, client pulsar.Client, option routerOption) (*router, error) {
-	r := &router{
+func newReRouter(logger log.Logger, client pulsar.Client, options reRouterOptions) (*reRouter, error) {
+	r := &reRouter{
 		client: client,
-		option: option,
+		option: options,
 		log:    logger,
 	}
 
-	if option.Enable {
-		if option.MaxDeliveries <= 0 {
-			return nil, errors.New("routerOption.MaxDeliveries needs to be > 0")
-		}
+	if options.Enable {
+		/*if options.MaxDeliveries <= 0 {
+			return nil, errors.New("reRouterOptions.MaxDeliveries needs to be > 0")
+		}*/
 
-		if option.Topic == "" {
-			return nil, errors.New("routerOption.Topic needs to be set to a valid topic name")
+		if options.Topic == "" {
+			return nil, errors.New("reRouterOptions.Topic needs to be set to a valid topic name")
 		}
 
 		r.messageCh = make(chan *RerouteMessage)
 		r.closeCh = make(chan interface{}, 1)
-		r.log = logger.SubLogger(log.Fields{"rlq-topic": option.Topic})
+		r.log = logger.SubLogger(log.Fields{"rlq-topic": options.Topic})
+		if options.connectInSyncEnable {
+			r.getProducer()
+		}
 		go r.run()
 	}
 	return r, nil
 }
 
-func (r *router) Chan() chan *RerouteMessage {
+func (r *reRouter) Chan() chan *RerouteMessage {
 	return r.messageCh
 }
 
-func (r *router) run() {
+func (r *reRouter) run() {
 	for {
 		select {
 		case rm := <-r.messageCh:
@@ -78,13 +82,13 @@ func (r *router) run() {
 			if r.producer != nil {
 				r.producer.Close()
 			}
-			r.log.Debugf("Closed router for topic: %s", r.option.Topic)
+			r.log.Debugf("Closed reRouter for topic: %s", r.option.Topic)
 			return
 		}
 	}
 }
 
-func (r *router) close() {
+func (r *reRouter) close() {
 	// Attempt to write on the close channel, without blocking
 	select {
 	case r.closeCh <- nil:
@@ -92,14 +96,14 @@ func (r *router) close() {
 	}
 }
 
-func (r *router) getProducer() pulsar.Producer {
+func (r *reRouter) getProducer() pulsar.Producer {
 	if r.producer != nil {
 		// Producer was already initialized
 		return r.producer
 	}
 
 	// Retry to create producer indefinitely
-	backoff := &backoff.Backoff{}
+	backoffPolicy := &backoff.Backoff{}
 	for {
 		producer, err := r.client.CreateProducer(pulsar.ProducerOptions{
 			Topic:                   r.option.Topic,
@@ -109,7 +113,7 @@ func (r *router) getProducer() pulsar.Producer {
 
 		if err != nil {
 			r.log.WithError(err).Errorf("Failed to create producer for topic: %s", r.option.Topic)
-			time.Sleep(backoff.Next())
+			time.Sleep(backoffPolicy.Next())
 			continue
 		} else {
 			r.producer = producer

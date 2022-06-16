@@ -9,6 +9,7 @@ import (
 
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/shenqianjin/soften-client-go/soften"
+	"github.com/shenqianjin/soften-client-go/soften/checker"
 	"github.com/shenqianjin/soften-client-go/soften/config"
 )
 
@@ -23,7 +24,9 @@ func TestNackConsumeTimesHeader(t *testing.T) {
 
 	producer, err := client.CreateSoftenProducer(config.ProducerConfig{
 		Topic: "my-topic",
-	})
+	}, checker.RouteChecker(func(message *pulsar.ProducerMessage) string {
+		return ""
+	}))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -37,9 +40,11 @@ func TestNackConsumeTimesHeader(t *testing.T) {
 	}, func(message pulsar.Message) (bool, error) {
 		fmt.Printf("consume message: %v, headers: %v\n", string(message.Payload()), message.Properties())
 		return true, nil
-	})
+	}, checker.PostBlockingChecker(func(message pulsar.Message, err error) (passed bool) {
+		return false
+	}))
 	if err != nil {
-		fmt.Printf("failed to subscribe. err: %v\n", err)
+		log.Fatal(err)
 	}
 	defer consumer.Close()
 

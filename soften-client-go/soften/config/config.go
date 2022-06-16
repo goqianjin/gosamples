@@ -12,22 +12,40 @@ import (
 // ------ client configuration ------
 
 type ClientConfig struct {
-	URL                     string
-	ConnectionTimeout       uint // Optional: default 5s
-	OperationTimeout        uint // Optional: default 30s
-	MaxConnectionsPerBroker uint // Optional: default 1
+	URL                     string `json:"url"`
+	ConnectionTimeout       uint   `json:"connection_timeout"`         // Optional: default 5s
+	OperationTimeout        uint   `json:"operation_timeout"`          // Optional: default 30s
+	MaxConnectionsPerBroker uint   `json:"max_connections_per_broker"` // Optional: default 1
 
-	Logger log.Logger `json: -`
+	Logger log.Logger `json:"-"`
 }
 
 // ------ producer configuration ------
 
 type ProducerConfig struct {
 	// extract out from pulsar.ProducerOptions
-	Topic       string        // Required:
-	SendTimeout time.Duration // Optional: s
+	Topic              string `json:"topic"` // Required:
+	Name               string `json:"name"`
+	SendTimeoutMs      int64  `json:"send_timeout_ms"`
+	SendTimeout        uint   `json:"send_timeout"` // time.Duration // Optional:
+	MaxPendingMessages int    `json:"max_pending_messages"`
+	HashingScheme      int    `json:"hashing_scheme"`
+	CompressionType    int    `json:"compression_type"`
+	CompressionLevel   int    `json:"compression_level"`
 
-	// custom
+	DisableBatching           bool  `json:"disable_batching"`
+	BatchingMaxPublishDelayMs int64 `json:"batching_max_publish_delay_ms"`
+	BatchingMaxMessages       uint  `json:"batching_max_messages"`
+	BatchingMaxSize           uint  `json:"batching_max_size"`
+	BatcherBuilderType        int   `json:"batcher_builder_type"`
+
+	MessageRouter func(*pulsar.ProducerMessage, pulsar.TopicMetadata) int
+
+	RouteEnable        bool         // Optional: 自定义路由开关
+	Route              *RoutePolicy //
+	HandleTimeout      uint         `json:"handle_timeout"` // Optional: 发送消息超时时间 (default: 30 seconds)
+	UpgradeEnable      bool
+	DegradeEnable      bool
 	TopicRouter        func(*pulsar.ProducerMessage) internal.TopicLevel // 自定义Topic路由器
 	UidTopicRouters    map[uint32]internal.TopicLevel                    // Uid级别路由静态配置; 优先级低于Bucket级别路由;
 	BucketTopicRouters map[string]internal.TopicLevel                    // Bucket级别路由静态配置; 优先级高于Uid级别路由;
@@ -46,36 +64,36 @@ type MultiLevelConsumerConfig struct {
 
 type ConsumerConfig struct {
 	// extract from pulsar.ConsumerOptions
-	Concurrency                 uint                               // Optional: 并发控制
-	Topics                      []string                           // Alternative with Topic: 如果有值, Topic 配置将被忽略
-	Topic                       string                             // Alternative with Topics: Topics缺失的情况下，该值生效
-	SubscriptionName            string                             //
-	Level                       internal.TopicLevel                // Optional:
-	Type                        pulsar.SubscriptionType            //
-	SubscriptionInitialPosition pulsar.SubscriptionInitialPosition //
-	NackBackoffPolicy           pulsar.NackBackoffPolicy           // Optional: Unrecommended, compatible with origin pulsar client
-	NackRedeliveryDelay         time.Duration                      // Optional: Unrecommended, compatible with origin pulsar client
-	RetryEnable                 bool                               // Optional: Unrecommended, compatible with origin pulsar client
-	DLQ                         *DLQPolicy                         // Optional: Unrecommended, compatible with origin pulsar client
-	ConsumeMaxTimes             int                                // Optional: 最大消费次数
-	BalanceStrategy             internal.BalanceStrategy           // Optional: 消费均衡策略
-	Ready                       *StatusPolicy                      // Optional: Ready 主题检查策略
-	BlockingEnable              bool                               // Optional: Blocking 检查开关
-	Blocking                    *StatusPolicy                      // Optional: Blocking 主题检查策略
-	PendingEnable               bool                               // Optional: Pending 检查开关
-	Pending                     *StatusPolicy                      // Optional: Pending 主题检查策略
-	RetryingEnable              bool                               // Optional: Retrying 重试检查开关
-	Retrying                    *StatusPolicy                      // Optional: Retrying 主题检查策略
-	RerouteEnable               bool                               // Optional: PreReRoute 检查开关, 默认false
-	Reroute                     *ReroutePolicy                     // Optional: Handle失败时的动态重路由
-	UpgradeEnable               bool                               // Optional: 主动升级
-	UpgradeTopicLevel           internal.TopicLevel                // Optional: 主动升级队列级别
-	DegradeEnable               bool                               // Optional: 主动降级
-	DegradeTopicLevel           internal.TopicLevel                // Optional: 主动降级队列级别
-	DeadEnable                  bool                               // Optional: 死信队列开关, 默认false; 如果所有校验器都没能校验通过, 应用代码需要自行Ack或者Nack
-	Dead                        *StatusPolicy                      // Optional: Dead 主题检查策略
-	DiscardEnable               bool                               // Optional: 丢弃消息开关, 默认false
-
+	Concurrency                 uint                               `json:"concurrency"`                   // Optional: 并发控制
+	Topics                      []string                           `json:"topics"`                        // Alternative with Topic: 如果有值, Topic 配置将被忽略; 第一个为核心主题
+	Topic                       string                             `json:"topic"`                         // Alternative with Topics: Topics缺失的情况下，该值生效
+	SubscriptionName            string                             `json:"subscription_name"`             //
+	Level                       internal.TopicLevel                `json:"level"`                         // Optional:
+	Type                        pulsar.SubscriptionType            `json:"type"`                          //
+	SubscriptionInitialPosition pulsar.SubscriptionInitialPosition `json:"subscription_initial_position"` //
+	NackBackoffPolicy           pulsar.NackBackoffPolicy           `json:"-"`                             // Optional: Unrecommended, compatible with origin pulsar client
+	NackRedeliveryDelay         time.Duration                      `json:"nack_redelivery_delay"`         // Optional: Unrecommended, compatible with origin pulsar client
+	RetryEnable                 bool                               `json:"retry_enable"`                  // Optional: Unrecommended, compatible with origin pulsar client
+	DLQ                         *DLQPolicy                         `json:"dlq"`                           // Optional: Unrecommended, compatible with origin pulsar client
+	ConsumeMaxTimes             int                                `json:"consume_max_times"`             // Optional: 最大消费次数
+	BalanceStrategy             internal.BalanceStrategy           `json:"balance_strategy"`              // Optional: 消费均衡策略
+	Ready                       *StatusPolicy                      `json:"ready"`                         // Optional: Ready 主题检查策略
+	BlockingEnable              bool                               `json:"blocking_enable"`               // Optional: Blocking 检查开关
+	Blocking                    *StatusPolicy                      `json:"blocking"`                      // Optional: Blocking 主题检查策略
+	PendingEnable               bool                               `json:"pending_enable"`                // Optional: Pending 检查开关
+	Pending                     *StatusPolicy                      `json:"pending"`                       // Optional: Pending 主题检查策略
+	RetryingEnable              bool                               `json:"retrying_enable"`               // Optional: Retrying 重试检查开关
+	Retrying                    *StatusPolicy                      `json:"retrying"`                      // Optional: Retrying 主题检查策略
+	RerouteEnable               bool                               `json:"reroute_enable"`                // Optional: PreReRoute 检查开关, 默认false
+	Reroute                     *ReroutePolicy                     `json:"reroute"`                       // Optional: Handle失败时的动态重路由
+	UpgradeEnable               bool                               `json:"upgrade_enable"`                // Optional: 主动升级
+	UpgradeTopicLevel           internal.TopicLevel                `json:"upgrade_topic_level"`           // Optional: 主动升级队列级别
+	DegradeEnable               bool                               `json:"degrade_enable"`                // Optional: 主动降级
+	DegradeTopicLevel           internal.TopicLevel                `json:"degrade_topic_level"`           // Optional: 主动降级队列级别
+	DeadEnable                  bool                               `json:"dead_enable"`                   // Optional: 死信队列开关, 默认false; 如果所有校验器都没能校验通过, 应用代码需要自行Ack或者Nack
+	Dead                        *StatusPolicy                      `json:"dead"`                          // Optional: Dead 主题检查策略
+	DiscardEnable               bool                               `json:"discard_enable"`                // Optional: 丢弃消息开关, 默认false
+	HandleTimeout               uint                               `json:"handle_timeout"`                // Optional: 处理消息超时时间 (default: 30 seconds)
 }
 
 // ------ helper structs ------
@@ -105,13 +123,23 @@ type LevelPolicy struct {
 	DegradeLevel  internal.TopicLevel // 降级级别
 }
 
+type RoutePolicy struct {
+	BackEnable          bool // Optional: 是否允许回撤, 回撤路由到主队列中 (同步发送有效,异步发送业务代码自行处理)
+	ConnectInSyncEnable bool // Optional: 是否同步建立连接, 首次发送消息需阻塞等待客户端与服务端连接完成
+}
+
 type ReroutePolicy struct {
+	ConnectInSyncEnable bool                   // Optional: 是否同步建立连接, 首次发送消息需阻塞等待客户端与服务端连接完成
+	RejectTo            internal.MessageStatus // 失败拒绝路由新状态
+}
+
+/*type ReroutePolicy struct {
 	//ReRouteMode      ReRouteMode       // 重路由模式: local; config
 	UidPreRouters    map[uint32]string // Uid级别打散路由静态配置; 优先级低于Bucket级别路由;
 	UidParseFunc     func(message pulsar.Message) uint
 	BucketPreRouters map[string]string // Bucket级别打散路由静态配置; 优先级高于Uid级别路由;
 	BucketParseFunc  func(message pulsar.Message) string
-}
+}*/
 
 // DLQPolicy represents the configuration for the Dead Letter Queue multiStatusConsumeFacade policy.
 type DLQPolicy struct {

@@ -12,12 +12,12 @@ type deadHandleOptions struct {
 }
 
 type deadHandler struct {
-	router  *router
+	router  *reRouter
 	options deadHandleOptions
 }
 
 func newDeadHandler(client *client, options deadHandleOptions) (*deadHandler, error) {
-	rt, err := newRouter(client.logger, client, routerOption{Topic: options.topic, Enable: options.enable})
+	rt, err := newReRouter(client.logger, client, reRouterOptions{Topic: options.topic, Enable: options.enable})
 	if err == nil {
 		return nil, err
 	}

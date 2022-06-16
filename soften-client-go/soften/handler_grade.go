@@ -12,7 +12,7 @@ import (
 )
 
 type gradeHandler struct {
-	router *router
+	router *reRouter
 	logger log.Logger
 	level  internal.TopicLevel
 }
@@ -28,8 +28,8 @@ func newGradeHandler(client *client, tpc string, level internal.TopicLevel) (*gr
 	if err != nil {
 		return nil, err
 	}
-	routerOption := routerOption{Enable: true, Topic: tpc + suffix}
-	rt, err := newRouter(client.logger, client, routerOption)
+	routerOption := reRouterOptions{Enable: true, Topic: tpc + suffix}
+	rt, err := newReRouter(client.logger, client, routerOption)
 	if err != nil {
 		return nil, err
 	}

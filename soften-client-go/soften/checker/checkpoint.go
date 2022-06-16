@@ -71,3 +71,13 @@ func PreRerouteChecker(checker internal.PreRerouteChecker) internal.Checkpoint {
 func PostRerouteChecker(checker internal.PostRerouteChecker) internal.Checkpoint {
 	return internal.Checkpoint{CheckType: CheckTypePostReroute, PostRerouteChecker: checker}
 }
+
+// ------ route checker ------
+
+func RouteChecker(checker internal.RouteChecker) internal.RouteChecker {
+	if checker == nil {
+		return internal.NilRouteChecker
+	} else {
+		return checker
+	}
+}

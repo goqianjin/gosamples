@@ -41,9 +41,18 @@ func (v *confValidator) ValidateAndDefaultConsumerConfig(conf *ConsumerConfig) e
 	if conf.Topic == "" && len(conf.Topics) == 0 {
 		return errors.New("no topic found in your configuration")
 	}
+	if len(conf.Topics) >= 1 && conf.Topic != "" {
+		if conf.Topics[0] != conf.Topic {
+			return errors.New("core topic is not match between topic and topics configuration")
+		}
+	}
 	if len(conf.Topics) == 0 && conf.Topic != "" {
 		conf.Topics = []string{conf.Topic}
 	}
+	if len(conf.Topics) >= 1 && conf.Topic == "" {
+		conf.Topic = conf.Topics[0]
+	}
+
 	// default Level
 	if conf.Level == "" {
 		conf.Level = topic.L1

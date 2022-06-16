@@ -20,13 +20,13 @@ type statusHandleOptions struct {
 }
 
 type statusHandler struct {
-	router  *router
+	router  *reRouter
 	policy  *config.StatusPolicy
 	options statusHandleOptions
 }
 
 func newStatusHandler(client *client, policy *config.StatusPolicy, options statusHandleOptions) (*statusHandler, error) {
-	rt, err := newRouter(client.logger, client, routerOption{Topic: options.topic, Enable: options.enable})
+	rt, err := newReRouter(client.logger, client, reRouterOptions{Topic: options.topic, Enable: options.enable})
 	if err != nil {
 		return nil, err
 	}

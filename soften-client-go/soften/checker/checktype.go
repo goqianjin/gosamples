@@ -39,14 +39,3 @@ func DefaultPostCheckTypes() []internal.CheckType {
 		CheckTypePreBlocking, CheckTypePrePending, CheckTypePostRetrying}
 	return values
 }
-
-/*var messageStatusToPostCheckTypeMap = map[MessageStatus] internal.CheckType{
-	MessageStatusDiscard:           CheckTypePostDiscard,
-	MessageStatusDead:              CheckTypePostDead,
-	MessageStatusBlocking:          CheckTypePostBlocking,
-	MessageStatusPending:           CheckTypePostPending,
-	MessageStatusRetrying:          CheckTypePostRetrying,
-	messageStatusNewReadyByReroute: CheckTypePostReroute,
-	MessageStatusNewReadyByUpgrade: CheckTypePostUpgrade,
-	MessageStatusNewReadyByDegrade: CheckTypePostDegrade,
-}*/

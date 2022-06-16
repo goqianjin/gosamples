@@ -21,8 +21,23 @@ func (v *confValidator) ValidateConsumeCheckpoint(conf *config.ConsumerConfig, c
 	for _, checkOpt := range checkpoints {
 		if checkOpt.CheckType == "" {
 			return nil, errors.New(" internal.CheckType can not be empty")
-		} else if checkOpt.PreStatusChecker == nil {
-			return nil, errors.New(fmt.Sprintf("PreStatusChecker can not be nil for input checkOption: %s", checkOpt.CheckType))
+		}
+		if v.isPreStatusCheckType(checkOpt.CheckType) {
+			if checkOpt.PreStatusChecker == nil {
+				return nil, errors.New(fmt.Sprintf("PreStatusChecker can not be nil for input checkOption: %s", checkOpt.CheckType))
+			}
+		} else if v.isPostStatusCheckType(checkOpt.CheckType) {
+			if checkOpt.PostStatusChecker == nil {
+				return nil, errors.New(fmt.Sprintf("PostStatusChecker can not be nil for input checkOption: %s", checkOpt.CheckType))
+			}
+		} else if v.isPreRerouteCheckType(checkOpt.CheckType) {
+			if checkOpt.PreRerouteChecker == nil {
+				return nil, errors.New(fmt.Sprintf("PreRerouteChecker can not be nil for input checkOption: %s", checkOpt.CheckType))
+			}
+		} else if v.isPostRerouteCheckType(checkOpt.CheckType) {
+			if checkOpt.PostRerouteChecker == nil {
+				return nil, errors.New(fmt.Sprintf("PostRerouteChecker can not be nil for input checkOption: %s", checkOpt.CheckType))
+			}
 		}
 		checkpointMap[checkOpt.CheckType] = &checkOpt
 	}
@@ -52,4 +67,36 @@ func (v *confValidator) findCheckpointByType(checkpointMap map[internal.CheckTyp
 		}
 	}
 	return nil
+}
+
+func (v *confValidator) isPreStatusCheckType(checkType internal.CheckType) bool {
+	for _, ct := range PreCheckTypes() {
+		if v.isPreRerouteCheckType(ct) {
+			continue
+		}
+		if ct == checkType {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *confValidator) isPostStatusCheckType(checkType internal.CheckType) bool {
+	for _, ct := range DefaultPostCheckTypes() {
+		if v.isPostRerouteCheckType(ct) {
+			continue
+		}
+		if ct == checkType {
+			return true
+		}
+	}
+	return false
+}
+
+func (v *confValidator) isPreRerouteCheckType(checkType internal.CheckType) bool {
+	return checkType == CheckTypePreReroute
+}
+
+func (v *confValidator) isPostRerouteCheckType(checkType internal.CheckType) bool {
+	return checkType == CheckTypePostReroute
 }

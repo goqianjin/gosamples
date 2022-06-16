@@ -5,7 +5,7 @@ import (
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 )
 
-// ------ re-router message ------
+// ------ re-reRouter message ------
 
 type RerouteMessage struct {
 	producerMsg pulsar.ProducerMessage

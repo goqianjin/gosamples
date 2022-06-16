@@ -2,15 +2,11 @@ package soften
 
 import (
 	"errors"
-	"fmt"
 	"time"
-
-	"github.com/shenqianjin/soften-client-go/soften/message"
-
-	"github.com/shenqianjin/soften-client-go/soften/checker"
 
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/apache/pulsar-client-go/pulsar/log"
+	"github.com/shenqianjin/soften-client-go/soften/checker"
 	"github.com/shenqianjin/soften-client-go/soften/config"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 )
@@ -41,7 +37,7 @@ func NewClient(conf config.ClientConfig) (*client, error) {
 	return cli, nil
 }
 
-func (c *client) CreateSoftenProducer(conf config.ProducerConfig) (*producer, error) {
+func (c *client) CreateSoftenProducer(conf config.ProducerConfig, checkers ...internal.RouteChecker) (*producer, error) {
 	if conf.Topic == "" {
 		return nil, errors.New("topic is empty")
 	}
@@ -106,38 +102,4 @@ func (c *client) SubscribeMultiLevel(conf config.MultiLevelConsumerConfig, handl
 	} else {
 		return consumer, err
 	}
-}
-
-func (c *client) subscribeByStatus(conf *config.ConsumerConfig, status internal.MessageStatus) (pulsar.Consumer, error) {
-	suffix := ""
-	if status == message.StatusReady {
-		suffix = ""
-	} else if status == message.StatusDead {
-		suffix = "-DLQ"
-	} else if status == message.StatusPending || status == message.StatusBlocking || status == message.StatusRetrying {
-		suffix = "-" + string(status)
-	} else {
-		return nil, errors.New(fmt.Sprintf("message status %s cannot be subsribed", status))
-	}
-	topic := conf.Topic + suffix
-	subscriptionName := conf.SubscriptionName + suffix
-	consumerOption := pulsar.ConsumerOptions{
-		Topic:                       topic,
-		SubscriptionName:            subscriptionName,
-		Type:                        conf.Type,
-		SubscriptionInitialPosition: conf.SubscriptionInitialPosition,
-		NackRedeliveryDelay:         conf.NackRedeliveryDelay,
-		NackBackoffPolicy:           conf.NackBackoffPolicy,
-		RetryEnable:                 conf.RetryEnable,
-		MessageChannel:              nil,
-	}
-	if conf.DLQ != nil {
-		consumerOption.DLQ = &pulsar.DLQPolicy{
-			MaxDeliveries:    conf.DLQ.MaxDeliveries,
-			RetryLetterTopic: conf.DLQ.RetryLetterTopic,
-			DeadLetterTopic:  conf.DLQ.DeadLetterTopic,
-		}
-	}
-	pulsarConsumer, err := c.Client.Subscribe(consumerOption)
-	return pulsarConsumer, err
 }

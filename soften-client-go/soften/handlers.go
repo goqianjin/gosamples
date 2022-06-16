@@ -58,7 +58,7 @@ func newGeneralConsumeHandlers(client *client, conf generalConsumeHandlerOptions
 	return handlers, nil
 }
 
-// ------ general consume handlers ------
+// ------ leveled consume handlers ------
 
 type leveledConsumeHandlers struct {
 	blockingHandler internal.Handler // 状态处理器
@@ -68,7 +68,7 @@ type leveledConsumeHandlers struct {
 	degradeHandler  internal.Handler // 状态处理器: 升级为NewReady
 }
 
-type levelConsumeHandlerOptions struct {
+type leveledConsumeHandlerOptions struct {
 	Topic             string               // Business Topic
 	BlockingEnable    bool                 // Blocking 检查开关
 	Blocking          *config.StatusPolicy // Blocking 主题检查策略
@@ -86,7 +86,7 @@ type levelConsumeHandlerOptions struct {
 
 // newLeveledConsumeHandlers create handlers based on different levels.
 // the topics[0], xxxEnable, xxxStatusPolicy and (topics[0] + Upgrade/DegradeLevel) parameters is used in this construction.
-func newLeveledConsumeHandlers(client *client, options levelConsumeHandlerOptions, deadHandler internal.Handler) (*leveledConsumeHandlers, error) {
+func newLeveledConsumeHandlers(client *client, options leveledConsumeHandlerOptions, deadHandler internal.Handler) (*leveledConsumeHandlers, error) {
 	handlers := &leveledConsumeHandlers{
 		//multiStatusConsumeFacade: multiStatusConsumeFacade,
 		//options:   options,

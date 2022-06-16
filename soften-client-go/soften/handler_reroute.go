@@ -8,15 +8,15 @@ import (
 )
 
 type rerouteHandler struct {
-	routers map[string]*router
+	routers map[string]*reRouter
 	client  pulsar.Client
 	logger  log.Logger
 }
 
 func newRerouteHandler(client *client) (*rerouteHandler, error) {
-	routers := make(map[string]*router)
-	reRouter := &rerouteHandler{logger: client.logger, routers: routers}
-	return reRouter, nil
+	routers := make(map[string]*reRouter)
+	rtrHandler := &rerouteHandler{logger: client.logger, routers: routers}
+	return rtrHandler, nil
 }
 
 func (hd *rerouteHandler) Handle(msg pulsar.ConsumerMessage, topic string) bool {
@@ -24,8 +24,8 @@ func (hd *rerouteHandler) Handle(msg pulsar.ConsumerMessage, topic string) bool 
 		return false
 	}
 	if _, ok := hd.routers[topic]; !ok {
-		rtOption := routerOption{Enable: true, Topic: topic}
-		rt, err := newRouter(hd.logger, hd.client, rtOption)
+		rtOption := reRouterOptions{Enable: true, Topic: topic}
+		rt, err := newReRouter(hd.logger, hd.client, rtOption)
 		if err != nil {
 			return false
 		}
