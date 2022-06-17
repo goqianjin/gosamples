@@ -40,6 +40,7 @@ func newProducer(client *client, conf *config.ProducerConfig, checkers ...intern
 	return producer, nil
 }
 
+// Send aim to send message synchronously
 func (p *producer) Send(ctx context.Context, msg *pulsar.ProducerMessage) (pulsar.MessageID, error) {
 	if !p.routeEnable {
 		return p.Producer.Send(ctx, msg)
@@ -49,14 +50,20 @@ func (p *producer) Send(ctx context.Context, msg *pulsar.ProducerMessage) (pulsa
 		if routeTopic == "" {
 			continue
 		}
-		rtr, err := p.internalGetRouter(routeTopic)
+		rtr, err := p.internalSafeGetRouterInAsync(routeTopic)
 		if err != nil {
 			p.logger.Warnf("failed to create router for topic: %s", routeTopic)
 			continue
 		}
 		if !rtr.ready {
-			p.logger.Warnf("router is still not ready for topic: %s", routeTopic)
-			continue
+			// wait router until it's ready
+			if p.routePolicy.ConnectInSyncEnable {
+				<-rtr.readyCh
+			} else {
+				// back to other router or main topic before the checked router is ready
+				p.logger.Warnf("router is still not ready for topic: %s", routeTopic)
+				continue
+			}
 		}
 		if mid, err2 := rtr.Send(ctx, msg); err2 != nil {
 			p.logger.Warnf("failed to send message to topic: %s", routeTopic)
@@ -70,6 +77,7 @@ func (p *producer) Send(ctx context.Context, msg *pulsar.ProducerMessage) (pulsa
 	return p.Producer.Send(ctx, msg)
 }
 
+// SendAsync send message asynchronously
 func (p *producer) SendAsync(ctx context.Context, msg *pulsar.ProducerMessage,
 	callback func(pulsar.MessageID, *pulsar.ProducerMessage, error)) {
 	if !p.routeEnable {
@@ -81,37 +89,45 @@ func (p *producer) SendAsync(ctx context.Context, msg *pulsar.ProducerMessage,
 		if routeTopic == "" {
 			continue
 		}
-		rtr, err := p.internalGetRouter(routeTopic)
+		rtr, err := p.internalSafeGetRouterInAsync(routeTopic)
 		if err != nil {
 			p.logger.Warnf("failed to create router for topic: %s", routeTopic)
 			continue
 		}
 		if !rtr.ready {
-			p.logger.Warnf("router is still not ready for topic: %s", routeTopic)
-			continue
+			// wait router until it's ready
+			if p.routePolicy.ConnectInSyncEnable {
+				<-rtr.readyCh
+			} else {
+				// back to other router or main topic before the checked router is ready
+				p.logger.Warnf("router is still not ready for topic: %s", routeTopic)
+				continue
+			}
 		}
 		rtr.SendAsync(ctx, msg, callback)
 	}
 	p.Producer.SendAsync(ctx, msg, callback)
 }
 
-func (p *producer) internalGetRouter(topic string) (*router, error) {
+func (p *producer) internalSafeGetRouterInAsync(topic string) (*router, error) {
 	p.routersLock.RLock()
 	rtr, ok := p.routers[topic]
 	p.routersLock.RUnlock()
-	if !ok {
-		options := routerOptions{Topic: topic, connectInSyncEnable: p.routePolicy.ConnectInSyncEnable}
-		p.routersLock.Lock()
-		defer p.routersLock.Unlock()
-		rtr, ok = p.routers[topic]
-		if !ok {
-			if newRtr, err := newRouter(p.logger, p.client, options); err != nil {
-				return nil, err
-			} else {
-				rtr = newRtr
-				p.routers[topic] = newRtr
-			}
-		}
+	if ok {
+		return rtr, nil
 	}
-	return rtr, nil
+	options := routerOptions{Topic: topic, connectInSyncEnable: false}
+	p.routersLock.Lock()
+	defer p.routersLock.Unlock()
+	rtr, ok = p.routers[topic]
+	if ok {
+		return rtr, nil
+	}
+	if newRtr, err := newRouter(p.logger, p.client, options); err != nil {
+		return nil, err
+	} else {
+		rtr = newRtr
+		p.routers[topic] = newRtr
+		return rtr, nil
+	}
 }

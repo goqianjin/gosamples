@@ -2,6 +2,7 @@ package soften
 
 import (
 	"errors"
+
 	"github.com/shenqianjin/soften-client-go/soften/topic"
 
 	"github.com/shenqianjin/soften-client-go/soften/message"
@@ -28,7 +29,7 @@ func newGradeHandler(client *client, tpc string, level internal.TopicLevel) (*gr
 	if err != nil {
 		return nil, err
 	}
-	routerOption := reRouterOptions{Enable: true, Topic: tpc + suffix}
+	routerOption := reRouterOptions{Topic: tpc + suffix}
 	rt, err := newReRouter(client.logger, client, routerOption)
 	if err != nil {
 		return nil, err

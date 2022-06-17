@@ -1,21 +1,26 @@
 package soften
 
 import (
+	"sync"
+
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/apache/pulsar-client-go/pulsar/log"
+	"github.com/shenqianjin/soften-client-go/soften/config"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 	"github.com/shenqianjin/soften-client-go/soften/message"
 )
 
 type rerouteHandler struct {
-	routers map[string]*reRouter
-	client  pulsar.Client
-	logger  log.Logger
+	routers     map[string]*reRouter
+	routersLock sync.RWMutex
+	client      pulsar.Client
+	logger      log.Logger
+	policy      *config.ReroutePolicy
 }
 
-func newRerouteHandler(client *client) (*rerouteHandler, error) {
+func newRerouteHandler(client *client, policy *config.ReroutePolicy) (*rerouteHandler, error) {
 	routers := make(map[string]*reRouter)
-	rtrHandler := &rerouteHandler{logger: client.logger, routers: routers}
+	rtrHandler := &rerouteHandler{logger: client.logger, routers: routers, policy: policy}
 	return rtrHandler, nil
 }
 
@@ -23,13 +28,16 @@ func (hd *rerouteHandler) Handle(msg pulsar.ConsumerMessage, topic string) bool 
 	if topic == "" {
 		return false
 	}
-	if _, ok := hd.routers[topic]; !ok {
-		rtOption := reRouterOptions{Enable: true, Topic: topic}
-		rt, err := newReRouter(hd.logger, hd.client, rtOption)
-		if err != nil {
+	rtr, err := hd.internalSafeGetReRouterInAsync(topic)
+	if err != nil {
+		return false
+	}
+	if !rtr.ready {
+		if hd.policy.ConnectInSyncEnable {
+			<-rtr.readyCh
+		} else {
 			return false
 		}
-		hd.routers[topic] = rt
 	}
 	// prepare to reroute
 	props := make(map[string]string)
@@ -54,9 +62,32 @@ func (hd *rerouteHandler) Handle(msg pulsar.ConsumerMessage, topic string) bool 
 		Properties:  props,
 		EventTime:   msg.EventTime(),
 	}
-	hd.routers[topic].Chan() <- &RerouteMessage{
+	rtr.Chan() <- &RerouteMessage{
 		consumerMsg: msg,
 		producerMsg: producerMsg,
 	}
 	return true
+}
+
+func (hd *rerouteHandler) internalSafeGetReRouterInAsync(topic string) (*reRouter, error) {
+	hd.routersLock.RLock()
+	rtr, ok := hd.routers[topic]
+	hd.routersLock.RUnlock()
+	if ok {
+		return rtr, nil
+	}
+	rtOption := reRouterOptions{Topic: topic, connectInSyncEnable: false}
+	hd.routersLock.Lock()
+	defer hd.routersLock.Unlock()
+	rtr, ok = hd.routers[topic]
+	if ok {
+		return rtr, nil
+	}
+	if newRtr, err := newReRouter(hd.logger, hd.client, rtOption); err != nil {
+		return nil, err
+	} else {
+		rtr = newRtr
+		hd.routers[topic] = newRtr
+		return rtr, nil
+	}
 }

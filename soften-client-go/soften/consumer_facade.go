@@ -2,6 +2,7 @@ package soften
 
 import (
 	"fmt"
+	"strconv"
 
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/apache/pulsar-client-go/pulsar/log"
@@ -77,7 +78,7 @@ func newMultiStatusConsumeFacade(c *client, conf config.ConsumerConfig, handler 
 func newMultiLevelConsumeFacade(cli *client, conf config.MultiLevelConsumerConfig, handler PremiumHandler, checkpointMap map[internal.CheckType]*internal.Checkpoint) (*consumeFacade, error) {
 	logTopic := conf.Topics[0]
 	if len(conf.Topics) > 1 {
-		logTopic = logTopic + "+" + string(len(conf.Topics)-1)
+		logTopic = logTopic + "+" + strconv.Itoa(len(conf.Topics)-1)
 	}
 	facade := &consumeFacade{
 		client:    cli,

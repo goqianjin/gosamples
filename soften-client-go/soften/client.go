@@ -41,7 +41,7 @@ func (c *client) CreateSoftenProducer(conf config.ProducerConfig, checkers ...in
 	if conf.Topic == "" {
 		return nil, errors.New("topic is empty")
 	}
-	return newProducer(c, &conf)
+	return newProducer(c, &conf, checkers...)
 
 }
 

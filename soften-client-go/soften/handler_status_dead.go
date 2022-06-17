@@ -7,8 +7,8 @@ import (
 )
 
 type deadHandleOptions struct {
-	topic  string // default ${TOPIC}_RETRYING, 固定后缀，不允许定制
-	enable bool   // 内部判断使用
+	topic string // default ${TOPIC}_RETRYING, 固定后缀，不允许定制
+	//enable bool   // 内部判断使用
 }
 
 type deadHandler struct {
@@ -17,7 +17,7 @@ type deadHandler struct {
 }
 
 func newDeadHandler(client *client, options deadHandleOptions) (*deadHandler, error) {
-	rt, err := newReRouter(client.logger, client, reRouterOptions{Topic: options.topic, Enable: options.enable})
+	rt, err := newReRouter(client.logger, client, reRouterOptions{Topic: options.topic})
 	if err == nil {
 		return nil, err
 	}

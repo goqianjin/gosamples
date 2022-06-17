@@ -16,10 +16,11 @@ type generalConsumeHandlers struct {
 }
 
 type generalConsumeHandlerOptions struct {
-	Topic         string // Business Topic
-	DiscardEnable bool   // Blocking 检查开关
-	DeadEnable    bool   // Pending 检查开关
-	RerouteEnable bool   // Retrying 重试检查开关
+	Topic         string                // Business Topic
+	DiscardEnable bool                  // Blocking 检查开关
+	DeadEnable    bool                  // Pending 检查开关
+	RerouteEnable bool                  // Retrying 重试检查开关
+	Reroute       *config.ReroutePolicy // Reroute Policy
 }
 
 func newGeneralConsumeHandlers(client *client, conf generalConsumeHandlerOptions) (*generalConsumeHandlers, error) {
@@ -41,7 +42,7 @@ func newGeneralConsumeHandlers(client *client, conf generalConsumeHandlerOptions
 		if err != nil {
 			return nil, err
 		}
-		deadOptions := deadHandleOptions{enable: true, topic: conf.Topic + suffix}
+		deadOptions := deadHandleOptions{topic: conf.Topic + suffix}
 		hd, err := newDeadHandler(client, deadOptions)
 		if err != nil {
 			return nil, err
@@ -49,7 +50,7 @@ func newGeneralConsumeHandlers(client *client, conf generalConsumeHandlerOptions
 		handlers.deadHandler = hd
 	}
 	if conf.RerouteEnable {
-		hd, err := newRerouteHandler(client)
+		hd, err := newRerouteHandler(client, conf.Reroute)
 		if err != nil {
 			return nil, err
 		}
@@ -97,7 +98,7 @@ func newLeveledConsumeHandlers(client *client, options leveledConsumeHandlerOpti
 		if err != nil {
 			return nil, err
 		}
-		hdOptions := statusHandleOptions{status: message.StatusPending, enable: true,
+		hdOptions := statusHandleOptions{status: message.StatusPending,
 			topic: options.Topic + suffix, deadHandler: deadHandler}
 		hd, err := newStatusHandler(client, options.Pending, hdOptions)
 		if err != nil {
@@ -110,7 +111,7 @@ func newLeveledConsumeHandlers(client *client, options leveledConsumeHandlerOpti
 		if err != nil {
 			return nil, err
 		}
-		hdOptions := statusHandleOptions{status: message.StatusBlocking, enable: true,
+		hdOptions := statusHandleOptions{status: message.StatusBlocking,
 			topic: options.Topic + suffix, deadHandler: deadHandler}
 		hd, err := newStatusHandler(client, options.Blocking, hdOptions)
 		if err != nil {
@@ -123,7 +124,7 @@ func newLeveledConsumeHandlers(client *client, options leveledConsumeHandlerOpti
 		if err != nil {
 			return nil, err
 		}
-		hdOptions := statusHandleOptions{status: message.StatusRetrying, enable: true,
+		hdOptions := statusHandleOptions{status: message.StatusRetrying,
 			topic: options.Topic + suffix, deadHandler: deadHandler}
 		hd, err := newStatusHandler(client, options.Retrying, hdOptions)
 		if err != nil {

@@ -13,9 +13,9 @@ import (
 // ------ base reRouter ------
 
 type reRouterOptions struct {
-	Enable              bool
 	Topic               string
 	connectInSyncEnable bool
+	connectMaxRetries   uint
 	//MaxDeliveries uint
 }
 
@@ -25,33 +25,32 @@ type reRouter struct {
 	option    reRouterOptions
 	messageCh chan *RerouteMessage
 	closeCh   chan interface{}
-	log       log.Logger
+	logger    log.Logger
+	ready     bool
+	readyCh   chan struct{}
 }
 
 func newReRouter(logger log.Logger, client pulsar.Client, options reRouterOptions) (*reRouter, error) {
 	r := &reRouter{
 		client: client,
 		option: options,
-		log:    logger,
+		logger: logger.SubLogger(log.Fields{"reroute-topic": options.Topic}),
 	}
 
-	if options.Enable {
-		/*if options.MaxDeliveries <= 0 {
-			return nil, errors.New("reRouterOptions.MaxDeliveries needs to be > 0")
-		}*/
-
-		if options.Topic == "" {
-			return nil, errors.New("reRouterOptions.Topic needs to be set to a valid topic name")
-		}
-
-		r.messageCh = make(chan *RerouteMessage)
-		r.closeCh = make(chan interface{}, 1)
-		r.log = logger.SubLogger(log.Fields{"rlq-topic": options.Topic})
-		if options.connectInSyncEnable {
-			r.getProducer()
-		}
-		go r.run()
+	if options.connectMaxRetries <= 0 {
+		return nil, errors.New("reRouterOptions.connectMaxRetries needs to be > 0")
 	}
+
+	if options.Topic == "" {
+		return nil, errors.New("reRouterOptions.Topic needs to be set to a valid topic name")
+	}
+
+	r.messageCh = make(chan *RerouteMessage)
+	r.closeCh = make(chan interface{}, 1)
+	if options.connectInSyncEnable {
+		r.getProducer()
+	}
+	go r.run()
 	return r, nil
 }
 
@@ -63,17 +62,17 @@ func (r *reRouter) run() {
 	for {
 		select {
 		case rm := <-r.messageCh:
-			r.log.WithField("msgID", rm.consumerMsg.ID()).Debugf("Got message for topic: %s", r.option.Topic)
+			r.logger.WithField("msgID", rm.consumerMsg.ID()).Debugf("Got message for topic: %s", r.option.Topic)
 			producer := r.getProducer()
 
 			msgID := rm.consumerMsg.ID()
 			producer.SendAsync(context.Background(), &rm.producerMsg, func(messageID pulsar.MessageID,
 				producerMessage *pulsar.ProducerMessage, err error) {
 				if err != nil {
-					r.log.WithError(err).WithField("msgID", msgID).Errorf("Failed to send message to topic: %s", r.option.Topic)
+					r.logger.WithError(err).WithField("msgID", msgID).Errorf("Failed to send message to topic: %s", r.option.Topic)
 					rm.consumerMsg.Consumer.Nack(rm.consumerMsg)
 				} else {
-					r.log.WithField("msgID", msgID).Debugf("Succeed to send message to topic: %s", r.option.Topic)
+					r.logger.WithField("msgID", msgID).Debugf("Succeed to send message to topic: %s", r.option.Topic)
 					rm.consumerMsg.Consumer.AckID(msgID)
 				}
 			})
@@ -82,7 +81,7 @@ func (r *reRouter) run() {
 			if r.producer != nil {
 				r.producer.Close()
 			}
-			r.log.Debugf("Closed reRouter for topic: %s", r.option.Topic)
+			r.logger.Debugf("Closed reRouter for topic: %s", r.option.Topic)
 			return
 		}
 	}
@@ -112,11 +111,14 @@ func (r *reRouter) getProducer() pulsar.Producer {
 		})
 
 		if err != nil {
-			r.log.WithError(err).Errorf("Failed to create producer for topic: %s", r.option.Topic)
+			r.logger.WithError(err).Errorf("Failed to create producer for topic: %s", r.option.Topic)
 			time.Sleep(backoffPolicy.Next())
 			continue
 		} else {
 			r.producer = producer
+			r.ready = true
+			r.readyCh <- struct{}{}
+			close(r.readyCh)
 			return producer
 		}
 	}

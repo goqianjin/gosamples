@@ -22,6 +22,7 @@ type router struct {
 	client  pulsar.Client
 	logger  log.Logger
 	ready   bool
+	readyCh chan struct{}
 }
 
 func newRouter(logger log.Logger, client pulsar.Client, options routerOptions) (*router, error) {
@@ -31,13 +32,13 @@ func newRouter(logger log.Logger, client pulsar.Client, options routerOptions) (
 	r := &router{
 		client:  client,
 		options: options,
+		logger:  logger.SubLogger(log.Fields{"route-topic": options.Topic}),
+		readyCh: make(chan struct{}, 1),
 	}
-	r.logger = logger.SubLogger(log.Fields{"route-topic": options.Topic})
 	// create real producer
 	if options.connectInSyncEnable {
 		// sync create
 		r.getProducer()
-		r.ready = true
 	} else {
 		// async create
 		go r.getProducer()
@@ -67,6 +68,8 @@ func (r *router) getProducer() pulsar.Producer {
 		} else {
 			r.Producer = producer
 			r.ready = true
+			r.readyCh <- struct{}{}
+			close(r.readyCh)
 			return producer
 		}
 	}

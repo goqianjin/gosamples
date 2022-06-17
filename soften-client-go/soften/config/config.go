@@ -124,7 +124,7 @@ type LevelPolicy struct {
 }
 
 type RoutePolicy struct {
-	BackEnable          bool // Optional: 是否允许回撤, 回撤路由到主队列中 (同步发送有效,异步发送业务代码自行处理)
+	BackEnable          bool // Optional: 是否允许回撤, 回撤路由到主队列或者其他checker中(同步发送有效,异步发送业务代码自行处理)
 	ConnectInSyncEnable bool // Optional: 是否同步建立连接, 首次发送消息需阻塞等待客户端与服务端连接完成
 }
 
