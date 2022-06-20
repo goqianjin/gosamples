@@ -136,7 +136,7 @@ func newMultiLevelConsumeFacade(cli *client, conf config.MultiLevelConsumerConfi
 
 func (c *consumeFacade) startInParallel(handler PremiumHandler, concurrency uint) {
 	defer c.Close()
-	concurrencyChan := make(chan bool, concurrency)
+	concurrencyChan := make(chan bool, 1)
 	for msg := range c.messageCh {
 		concurrencyChan <- true
 		go func(msg ConsumerMessage) {

@@ -2,7 +2,6 @@ package soften
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/shenqianjin/soften-client-go/soften/config"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
@@ -38,41 +37,28 @@ func newMultiLevelConsumer(consumerLogger log.Logger, client *client, conf confi
 }
 
 func (c *multiLevelConsumer) retrieveStatusMessages() {
-	multiConsumers := make([]*multiStatusConsumer, len(c.levelConsumers))
+	chs := make([]<-chan ConsumerMessage, len(c.levelConsumers))
 	weights := make([]uint, len(c.levelConsumers))
 	for level, consumer := range c.levelConsumers {
-		multiConsumers = append(multiConsumers, consumer)
+		chs = append(chs, consumer.Chan())
 		weights = append(weights, c.levelPolicies[level].ConsumeWeight)
 	}
-	consumeStrategy, err := config.BuildStrategy(c.levelStrategy, weights)
+	balanceStrategy, err := config.BuildStrategy(c.levelStrategy, weights)
 	if err != nil {
-		panic(fmt.Errorf("failed to start retrieveStatusMessages: %v", err))
+		panic(fmt.Errorf("failed to start retrieve: %v", err))
 	}
-	nilCount := 0 // TODO: use notify chan ?
 	for {
-		if nilCount == len(multiConsumers) {
-			time.Sleep(50 * time.Millisecond)
-			nilCount = 0
-		}
-		var message ConsumerMessage
-		messageChan := multiConsumers[consumeStrategy.Next()].Chan()
-		select {
-		case msg, ok := <-messageChan:
-			if !ok {
-				c.logger.Info("multiLevelConsumeFacade chan is closed")
-				break
-			}
-			message = msg
-		default:
-			nilCount++
-			continue
+		msg, ok := messageChSelector.receiveOneByWeight(chs, balanceStrategy, &[]int{})
+		if !ok {
+			c.logger.Warnf("status chan closed")
+			break
 		}
 		// 获取到消息
-		if message.Message != nil && message.Consumer != nil {
-			fmt.Printf("received message  msgId: %v -- content: '%s'\n", message.ID(), string(message.Payload()))
-			c.messageCh <- message
+		if msg.Message != nil && msg.Consumer != nil {
+			fmt.Printf("received message  msgId: %v -- content: '%s'\n", msg.ID(), string(msg.Payload()))
+			c.messageCh <- msg
 		} else {
-			panic(fmt.Sprintf("consumed an invalid message: %v", message))
+			panic(fmt.Sprintf("consumed an invalid message: %v", msg))
 		}
 	}
 }

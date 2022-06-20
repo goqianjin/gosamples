@@ -17,7 +17,7 @@ func NewRoundWeightStrategy(weights []uint) (*roundWeightStrategy, error) {
 	return &roundWeightStrategy{indexes: indexes, curr: 0}, nil
 }
 
-func (s *roundWeightStrategy) Next() int {
+func (s *roundWeightStrategy) Next(excludes ...int) int {
 	next := s.indexes[s.curr]
 	s.curr = (s.curr + 1) % len(s.indexes)
 	return next

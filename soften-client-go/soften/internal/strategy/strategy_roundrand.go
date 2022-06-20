@@ -32,11 +32,25 @@ func NewRoundRandStrategy(weights []uint) (*roundRandStrategy, error) {
 	return &roundRandStrategy{total: total, indexesMap: indexesMap}, nil
 }
 
-func (s *roundRandStrategy) Next() int {
+func (s *roundRandStrategy) Next(excludes ...int) int {
 	if len(s.nextIndexes) == 0 {
 		s.nextIndexes = rand.Perm(int(s.total))
 	}
-	next := s.nextIndexes[0]
-	s.nextIndexes = s.nextIndexes[1:]
-	return s.indexesMap[next]
+	if len(excludes) > 0 {
+		excludeMap := make(map[int]bool, len(excludes))
+		for _, index := range excludes {
+			excludeMap[index] = true
+		}
+		for i, next := range s.nextIndexes {
+			if !excludeMap[next] {
+				s.nextIndexes = s.nextIndexes[i:]
+				return s.indexesMap[next]
+			}
+		}
+		return 0
+	} else {
+		next := s.nextIndexes[0]
+		s.nextIndexes = s.nextIndexes[1:]
+		return s.indexesMap[next]
+	}
 }

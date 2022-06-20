@@ -26,7 +26,7 @@ func NewEachRandStrategy(weights []uint) (*eachRandStrategy, error) {
 	return &eachRandStrategy{total: totalWeight, prefixSums: prefixSums}, nil
 }
 
-func (s *eachRandStrategy) Next() int {
+func (s *eachRandStrategy) Next(excludes ...int) int {
 	r := uint(rand.Intn(int(s.total)))
 	for index := 0; index < len(s.prefixSums)-1; index++ {
 		if r >= s.prefixSums[index] && r < s.prefixSums[index+1] {

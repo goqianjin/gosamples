@@ -26,9 +26,24 @@ func main() {
 	strSlice := []string{"1", "2"}
 	fmt.Println(strSlice)
 
+	// update slice in func
 	updateStrMapFunc := func(m []string) {
 		m[1] = "3"
 	}
 	updateStrMapFunc(strSlice)
+	fmt.Println(strSlice)
+
+	// append slice in func
+	appendStrSliceFunc := func(m []string, ele string) {
+		m = append(m, "10")
+	}
+	appendStrSliceFunc(strSlice, "append1")
+	fmt.Println(strSlice)
+
+	// clear slice in func
+	clearStrSliceFunc := func(m []string) {
+		m = nil
+	}
+	clearStrSliceFunc(strSlice)
 	fmt.Println(strSlice)
 }

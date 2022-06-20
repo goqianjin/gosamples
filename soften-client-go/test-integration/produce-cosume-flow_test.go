@@ -22,7 +22,7 @@ func TestNackConsumeTimesHeader(t *testing.T) {
 	}
 	defer client.Close()
 
-	producer, err := client.CreateSoftenProducer(config.ProducerConfig{
+	producer, err := client.CreateProducerSoften(config.ProducerConfig{
 		Topic: "my-topic",
 	}, checker.RouteChecker(func(message *pulsar.ProducerMessage) string {
 		return ""

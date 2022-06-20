@@ -3,5 +3,5 @@ package strategy
 // ------ balance strategy interface ------
 
 type IBalanceStrategy interface {
-	Next() int
+	Next(excludes ...int) int
 }

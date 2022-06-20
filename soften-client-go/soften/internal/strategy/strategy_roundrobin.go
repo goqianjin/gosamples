@@ -23,7 +23,7 @@ func NewRoundRobinStrategy(destLen int) (*roundRobinStrategy, error) {
 	return &roundRobinStrategy{indexes: indexes, curr: 0}, nil
 }
 
-func (s *roundRobinStrategy) Next() int {
+func (s *roundRobinStrategy) Next(excludes ...int) int {
 	next := s.indexes[s.curr]
 	s.curr = (s.curr + 1) % len(s.indexes)
 	return next

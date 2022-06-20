@@ -58,40 +58,35 @@ func newMultiStatusConsumer(consumerLogger log.Logger, client *client, level int
 }
 
 func (msc *multiStatusConsumer) retrieveStatusMessages() {
-	statusConsumers := []*statusConsumer{msc.mainConsumer}
+	chs := make([]<-chan ConsumerMessage, 1)
+	weights := make([]uint, 1)
+	chs[0] = msc.mainConsumer.StatusChan()
+	weights[0] = msc.mainConsumer.policy.ConsumeWeight
+	if msc.retryingConsumer != nil {
+		chs = append(chs, msc.retryingConsumer.StatusChan())
+		weights = append(weights, msc.retryingConsumer.policy.ConsumeWeight)
+	}
 	if msc.pendingConsumer != nil {
-		statusConsumers = append(statusConsumers, msc.pendingConsumer)
+		chs = append(chs, msc.pendingConsumer.StatusChan())
+		weights = append(weights, msc.pendingConsumer.policy.ConsumeWeight)
 	}
 	if msc.blockingConsumer != nil {
-		statusConsumers = append(statusConsumers, msc.blockingConsumer)
+		chs = append(chs, msc.blockingConsumer.StatusChan())
+		weights = append(weights, msc.blockingConsumer.policy.ConsumeWeight)
 	}
-	if msc.retryingConsumer != nil {
-		statusConsumers = append(statusConsumers, msc.retryingConsumer)
-	}
-	weights := make([]uint, len(statusConsumers))
-	for index, c := range statusConsumers {
-		weights[index] = c.policy.ConsumeWeight
-	}
-	consumeStrategy, err := config.BuildStrategy(msc.statusStrategy, weights)
+	balanceStrategy, err := config.BuildStrategy(msc.statusStrategy, weights)
 	if err != nil {
-		panic(err)
+		panic(fmt.Errorf("failed to start retrieve: %v", err))
 	}
 	for {
-		var msg ConsumerMessage
-		messageChan := statusConsumers[consumeStrategy.Next()].StatusChan()
-		select {
-		case statusMsg, ok := <-messageChan:
-			if !ok {
-				msc.logger.Info("multiStatusConsumeFacade chan is closed")
-				break
-			}
-			msg = statusMsg
-		default:
-			continue
+		msg, ok := messageChSelector.receiveOneByWeight(chs, balanceStrategy, &[]int{})
+		if !ok {
+			msc.logger.Warnf("status chan closed")
+			break
 		}
 		// 获取到消息
 		if msg.Message != nil && msg.Consumer != nil {
-			fmt.Printf("received msg  msgId: %v -- content: '%s'\n", msg.ID(), string(msg.Payload()))
+			//fmt.Printf("received msg  msgId: %v -- content: '%s'\n", msg.ID(), string(msg.Payload()))
 			msg.LeveledMessage = &leveledMessage{level: msc.level}
 			msc.messageCh <- msg
 		} else {

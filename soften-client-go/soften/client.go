@@ -11,6 +11,14 @@ import (
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 )
 
+type Client interface {
+	pulsar.Client
+	CreateProducerSoften(conf config.ProducerConfig, checkers ...internal.RouteChecker) (*producer, error)
+	SubscribeRegular(conf config.ConsumerConfig, handler Handler, checkpoints ...internal.Checkpoint) (*consumeFacade, error)
+	SubscribePremium(conf config.ConsumerConfig, handler PremiumHandler, checkpoints ...internal.Checkpoint) (*consumeFacade, error)
+	SubscribePremiumInMultiLevels(conf config.MultiLevelConsumerConfig, handler PremiumHandler, checkpoints ...internal.Checkpoint) (*consumeFacade, error)
+}
+
 type client struct {
 	pulsar.Client
 	logger log.Logger
@@ -37,7 +45,7 @@ func NewClient(conf config.ClientConfig) (*client, error) {
 	return cli, nil
 }
 
-func (c *client) CreateSoftenProducer(conf config.ProducerConfig, checkers ...internal.RouteChecker) (*producer, error) {
+func (c *client) CreateProducerSoften(conf config.ProducerConfig, checkers ...internal.RouteChecker) (*producer, error) {
 	if conf.Topic == "" {
 		return nil, errors.New("topic is empty")
 	}
@@ -82,7 +90,7 @@ func (c *client) SubscribePremium(conf config.ConsumerConfig, handler PremiumHan
 	}
 }
 
-func (c *client) SubscribeMultiLevel(conf config.MultiLevelConsumerConfig, handler PremiumHandler, checkpoints ...internal.Checkpoint) (*consumeFacade, error) {
+func (c *client) SubscribePremiumInMultiLevels(conf config.MultiLevelConsumerConfig, handler PremiumHandler, checkpoints ...internal.Checkpoint) (*consumeFacade, error) {
 	// validate and default config
 	if err := config.Validator.ValidateAndDefaultMultiLevelConsumerConfig(&conf); err != nil {
 		return nil, err

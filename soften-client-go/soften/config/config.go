@@ -16,8 +16,10 @@ type ClientConfig struct {
 	ConnectionTimeout       uint   `json:"connection_timeout"`         // Optional: default 5s
 	OperationTimeout        uint   `json:"operation_timeout"`          // Optional: default 30s
 	MaxConnectionsPerBroker uint   `json:"max_connections_per_broker"` // Optional: default 1
+	TLSTrustCertsFilePath   string
 
-	Logger log.Logger `json:"-"`
+	Logger         log.Logger `json:"-"`
+	Authentication pulsar.Authentication
 }
 
 // ------ producer configuration ------

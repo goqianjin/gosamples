@@ -23,12 +23,12 @@ type statusConsumer struct {
 
 func newStatusConsumer(pulsarConsumer pulsar.Consumer, status internal.MessageStatus, policy *config.StatusPolicy, handler internal.Handler) *statusConsumer {
 	sc := &statusConsumer{
-		Consumer: pulsarConsumer,
-		status:   status,
-		policy:   policy,
-		handler:  handler,
+		Consumer:        pulsarConsumer,
+		status:          status,
+		policy:          policy,
+		handler:         handler,
+		statusMessageCh: make(chan ConsumerMessage, 5),
 	}
-	sc.statusMessageCh = make(chan ConsumerMessage, 5)
 	go sc.start()
 	return sc
 }
