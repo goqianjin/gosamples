@@ -2,6 +2,7 @@ package soften
 
 import (
 	"github.com/apache/pulsar-client-go/pulsar"
+	"github.com/shenqianjin/soften-client-go/soften/checker"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 	"github.com/shenqianjin/soften-client-go/soften/message"
 )
@@ -17,7 +18,7 @@ type deadHandler struct {
 }
 
 func newDeadHandler(client *client, options deadHandleOptions) (*deadHandler, error) {
-	rt, err := newReRouter(client.logger, client, reRouterOptions{Topic: options.topic})
+	rt, err := newReRouter(client.logger, client.Client, reRouterOptions{Topic: options.topic})
 	if err == nil {
 		return nil, err
 	}
@@ -25,7 +26,10 @@ func newDeadHandler(client *client, options deadHandleOptions) (*deadHandler, er
 	return statusRouter, nil
 }
 
-func (sr *deadHandler) Handle(msg pulsar.ConsumerMessage) bool {
+func (sr *deadHandler) Handle(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
+	if !cheStatus.IsPassed() {
+		return false
+	}
 	// prepare to re-route
 	props := make(map[string]string)
 	for k, v := range msg.Properties() {

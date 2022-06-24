@@ -17,7 +17,7 @@ type multiLevelConsumer struct {
 	levelConsumers map[internal.TopicLevel]*multiStatusConsumer
 }
 
-func newMultiLevelConsumer(consumerLogger log.Logger, client *client, conf config.MultiLevelConsumerConfig, messageCh chan ConsumerMessage, levelHandlers map[internal.TopicLevel]*leveledConsumeHandlers) (*multiLevelConsumer, error) {
+func newMultiLevelConsumer(consumerLogger log.Logger, client *client, conf *config.ConsumerConfig, messageCh chan ConsumerMessage, levelHandlers map[internal.TopicLevel]*leveledConsumeHandlers) (*multiLevelConsumer, error) {
 	consumer := &multiLevelConsumer{
 		logger:        consumerLogger,
 		levelStrategy: conf.LevelBalanceStrategy,
@@ -25,7 +25,7 @@ func newMultiLevelConsumer(consumerLogger log.Logger, client *client, conf confi
 	}
 	consumer.levelConsumers = make(map[internal.TopicLevel]*multiStatusConsumer, len(conf.Levels))
 	for _, level := range conf.Levels {
-		levelConsumer, err := newMultiStatusConsumer(consumerLogger, client, level, conf.ConsumerConfig, make(chan ConsumerMessage, 10), levelHandlers[level])
+		levelConsumer, err := newMultiStatusConsumer(consumerLogger, client, level, conf, make(chan ConsumerMessage, 10), levelHandlers[level])
 		if err != nil {
 			return nil, fmt.Errorf("failed to new multi-status comsumer -> %v", err)
 		}

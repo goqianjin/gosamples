@@ -2,6 +2,8 @@ package internal
 
 import (
 	"math/rand"
+
+	"github.com/shenqianjin/soften-client-go/soften/message"
 )
 
 type GotoPolicy interface {
@@ -9,7 +11,6 @@ type GotoPolicy interface {
 }
 
 type roundRandWeightGotoPolicy struct {
-	weights  []uint
 	choiceCh chan interface{}
 
 	total      uint
@@ -20,8 +21,7 @@ func NewRoundRandWeightGotoPolicy(weightMap map[string]uint) *roundRandWeightGot
 	total := uint(0)
 	count := 0
 	indexesMap := make(map[int]interface{})
-	weights := make([]uint, len(weightMap))
-	for key, weight := range weights {
+	for key, weight := range weightMap {
 		for i := 0; i < int(weight); i++ {
 			indexesMap[count] = key
 			count++
@@ -30,13 +30,12 @@ func NewRoundRandWeightGotoPolicy(weightMap map[string]uint) *roundRandWeightGot
 	}
 
 	policy := &roundRandWeightGotoPolicy{
-		weights:    weights,
-		choiceCh:   make(chan interface{}, 100),
+		choiceCh:   make(chan interface{}, 16),
 		total:      total,
 		indexesMap: indexesMap,
 	}
 
-	if len(policy.weights) > 1 {
+	if len(policy.indexesMap) > 1 && policy.total > 0 {
 		go policy.generate()
 	}
 
@@ -44,15 +43,17 @@ func NewRoundRandWeightGotoPolicy(weightMap map[string]uint) *roundRandWeightGot
 }
 
 func (p *roundRandWeightGotoPolicy) generate() {
-	nextIndexes := rand.Perm(int(p.total))
-	for _, index := range nextIndexes {
-		p.choiceCh <- p.indexesMap[index]
+	for {
+		nextIndexes := rand.Perm(int(p.total))
+		for _, index := range nextIndexes {
+			p.choiceCh <- p.indexesMap[index]
+		}
 	}
 }
 
 func (p *roundRandWeightGotoPolicy) Next() interface{} {
-	if len(p.weights) > 1 {
+	if len(p.indexesMap) > 1 {
 		return <-p.choiceCh
 	}
-	return 0
+	return message.GotoDone
 }

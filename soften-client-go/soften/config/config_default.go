@@ -1,6 +1,8 @@
 package config
 
-import "github.com/apache/pulsar-client-go/pulsar/log"
+import (
+	"github.com/apache/pulsar-client-go/pulsar/log"
+)
 
 // ------ logger ------
 
@@ -13,6 +15,8 @@ const (
 	defaultConsumeWeightRetrying = uint(6)  // Retrying 队列: 30% 权重
 	defaultConsumeWeightPending  = uint(3)  // Pending  队列: 15% 权重
 	defaultConsumeWeightBlocking = uint(1)  // Blocking 队列:  5% 权重
+
+	defaultLeveledConsumeWeightMain = uint(10)
 )
 
 // ------ default others ------
@@ -24,7 +28,7 @@ var (
 	//DefaultNackMaxDelay        = 300                                             // 最大Nack延迟，默认5分钟
 )
 
-// ------ default consume policies ------
+// ------ default consume status policies ------
 
 var (
 	// defaultStatusPolicyReady 默认pending状态的校验策略。CheckToTopic default ${TOPIC}, 固定后缀，不允许定制;
@@ -78,5 +82,23 @@ var (
 		ReentrantDelay:    1800,
 		ReentrantMaxTimes: 12,
 		CheckerMandatory:  false,
+	}
+)
+
+// ------ default consume leveled policies ------
+
+var (
+	defaultLeveledPolicy = &LevelPolicy{
+		ConsumeWeight: defaultLeveledConsumeWeightMain,
+	}
+)
+
+// ------ default consume concurrency policy ------
+
+var (
+	defaultConcurrencyPolicy = &ConcurrencyPolicy{
+		CorePoolSize:    50,
+		MaximumPoolSize: 50,
+		KeepAliveTime:   60,
 	}
 )

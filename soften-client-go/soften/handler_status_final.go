@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/shenqianjin/soften-client-go/soften/checker"
+
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/apache/pulsar-client-go/pulsar/log"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
@@ -25,7 +27,10 @@ func newFinalStatusHandler(logger log.Logger, status internal.MessageStatus) (*f
 	return &finalStatusHandler{logger: logger, status: status}, nil
 }
 
-func (h *finalStatusHandler) Handle(msg pulsar.ConsumerMessage) (success bool) {
+func (h *finalStatusHandler) Handle(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) (success bool) {
+	if !cheStatus.IsPassed() {
+		return false
+	}
 	switch h.status {
 	case message.StatusDone:
 		msg.Consumer.Ack(msg.Message)

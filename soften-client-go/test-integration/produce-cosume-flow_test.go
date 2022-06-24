@@ -22,7 +22,7 @@ func TestNackConsumeTimesHeader(t *testing.T) {
 	}
 	defer client.Close()
 
-	producer, err := client.CreateProducerSoften(config.ProducerConfig{
+	producer, err := client.CreateProducer(config.ProducerConfig{
 		Topic: "my-topic",
 	}, checker.RouteChecker(func(message *pulsar.ProducerMessage) string {
 		return ""
@@ -32,21 +32,26 @@ func TestNackConsumeTimesHeader(t *testing.T) {
 	}
 	defer producer.Close()
 
-	consumer, err := client.SubscribeRegular(config.ConsumerConfig{
+	consumer, err := client.CreateListener(config.ConsumerConfig{
 		Topic:               "my-topic",
 		SubscriptionName:    "my-sub",
 		Type:                pulsar.Shared,
 		NackRedeliveryDelay: 2 * time.Second,
-	}, func(message pulsar.Message) (bool, error) {
-		fmt.Printf("consume message: %v, headers: %v\n", string(message.Payload()), message.Properties())
-		return true, nil
-	}, checker.PostBlockingChecker(func(message pulsar.Message, err error) (passed bool) {
-		return false
-	}))
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer consumer.Close()
+
+	err = consumer.Start(context.Background(), func(message pulsar.Message) (bool, error) {
+		fmt.Printf("consume message: %v, headers: %v\n", string(message.Payload()), message.Properties())
+		return true, nil
+	}, checker.PostBlockingChecker(func(message pulsar.Message, err error) checker.CheckStatus {
+		return checker.CheckStatusFailed
+	}))
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	for count := 0; count < 100; count++ {
 		_, err = producer.Send(context.Background(), &pulsar.ProducerMessage{

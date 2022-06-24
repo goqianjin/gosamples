@@ -6,17 +6,15 @@ import (
 
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/apache/pulsar-client-go/pulsar/log"
-	"github.com/shenqianjin/soften-client-go/soften/checker"
 	"github.com/shenqianjin/soften-client-go/soften/config"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 )
 
 type Client interface {
-	pulsar.Client
-	CreateProducerSoften(conf config.ProducerConfig, checkers ...internal.RouteChecker) (*producer, error)
-	SubscribeRegular(conf config.ConsumerConfig, handler Handler, checkpoints ...internal.Checkpoint) (*consumeFacade, error)
-	SubscribePremium(conf config.ConsumerConfig, handler PremiumHandler, checkpoints ...internal.Checkpoint) (*consumeFacade, error)
-	SubscribePremiumInMultiLevels(conf config.MultiLevelConsumerConfig, handler PremiumHandler, checkpoints ...internal.Checkpoint) (*consumeFacade, error)
+	RawClient() pulsar.Client
+	CreateProducer(conf config.ProducerConfig, checkers ...internal.RouteChecker) (*producer, error)
+	CreateListener(conf config.ConsumerConfig) (*consumeListener, error)
+	Close() // close the Client and free associated resources
 }
 
 type client struct {
@@ -42,10 +40,15 @@ func NewClient(conf config.ClientConfig) (*client, error) {
 		return nil, err
 	}
 	cli := &client{Client: pulsarClient, logger: conf.Logger}
+	cli.logger.Infof("Soften client (url:%s) is ready", conf.URL)
 	return cli, nil
 }
 
-func (c *client) CreateProducerSoften(conf config.ProducerConfig, checkers ...internal.RouteChecker) (*producer, error) {
+func (c *client) RawClient() pulsar.Client {
+	return c.Client
+}
+
+func (c *client) CreateProducer(conf config.ProducerConfig, checkers ...internal.RouteChecker) (*producer, error) {
 	if conf.Topic == "" {
 		return nil, errors.New("topic is empty")
 	}
@@ -53,59 +56,13 @@ func (c *client) CreateProducerSoften(conf config.ProducerConfig, checkers ...in
 
 }
 
-func (c *client) SubscribeRegular(conf config.ConsumerConfig, handler Handler, checkpoints ...internal.Checkpoint) (*consumeFacade, error) {
-	// convert handler
-	handlerWithState := func(message pulsar.Message) HandleStatus {
-		success, err := handler(message)
-		if success {
-			return HandleStatusOk
-		} else {
-			return HandleStatusFail.Err(err)
-		}
-	}
-	// forward the call to c.SubscribePremium
-	return c.SubscribePremium(conf, handlerWithState, checkpoints...)
-
-}
-
-func (c *client) SubscribePremium(conf config.ConsumerConfig, handler PremiumHandler, checkpoints ...internal.Checkpoint) (*consumeFacade, error) {
+func (c *client) CreateListener(conf config.ConsumerConfig) (*consumeListener, error) {
 	// validate and default config
 	if err := config.Validator.ValidateAndDefaultConsumerConfig(&conf); err != nil {
 		return nil, err
 	}
-	// validate handler
-	if handler == nil {
-		panic("handler parameter is nil")
-	}
-	// validate checkpoints
-	checkpointMap, err := checker.Validator.ValidateConsumeCheckpoint(&conf, checkpoints...)
-	if err != nil {
-		return nil, err
-	}
 	// create consumer
-	if consumer, err := newMultiStatusConsumeFacade(c, conf, handler, checkpointMap); err != nil {
-		return nil, err
-	} else {
-		return consumer, err
-	}
-}
-
-func (c *client) SubscribePremiumInMultiLevels(conf config.MultiLevelConsumerConfig, handler PremiumHandler, checkpoints ...internal.Checkpoint) (*consumeFacade, error) {
-	// validate and default config
-	if err := config.Validator.ValidateAndDefaultMultiLevelConsumerConfig(&conf); err != nil {
-		return nil, err
-	}
-	// validate handler
-	if handler == nil {
-		panic("handler parameter is nil")
-	}
-	// validate checkpoints
-	checkpointMap, err := checker.Validator.ValidateConsumeCheckpoint(conf.ConsumerConfig, checkpoints...)
-	if err != nil {
-		return nil, err
-	}
-	// create consumer
-	if consumer, err := newMultiLevelConsumeFacade(c, conf, handler, checkpointMap); err != nil {
+	if consumer, err := newConsumeListener(c, conf); err != nil {
 		return nil, err
 	} else {
 		return consumer, err

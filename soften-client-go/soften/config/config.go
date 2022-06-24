@@ -53,20 +53,11 @@ type ProducerConfig struct {
 	BucketTopicRouters map[string]internal.TopicLevel                    // Bucket级别路由静态配置; 优先级高于Uid级别路由;
 }
 
-// ------ consumer configuration (multi-level) ------
-
-type MultiLevelConsumerConfig struct {
-	*ConsumerConfig
-	Levels               []internal.TopicLevel                // Required: 默认L1, 且消费的Topic Level级别, len(Topics) == 1 or Topic存在的时候才生效
-	LevelBalanceStrategy internal.BalanceStrategy             // Optional: Topic级别消费策略
-	LevelPolicies        map[internal.TopicLevel]*LevelPolicy // Optional: 级别消费策略
-}
-
 // ------ consumer configuration (multi-status) ------
 
 type ConsumerConfig struct {
 	// extract from pulsar.ConsumerOptions
-	Concurrency                 uint                               `json:"concurrency"`                   // Optional: 并发控制
+	Concurrency                 *ConcurrencyPolicy                 `json:"concurrency"`                   // Optional: 并发控制
 	Topics                      []string                           `json:"topics"`                        // Alternative with Topic: 如果有值, Topic 配置将被忽略; 第一个为核心主题
 	Topic                       string                             `json:"topic"`                         // Alternative with Topics: Topics缺失的情况下，该值生效
 	SubscriptionName            string                             `json:"subscription_name"`             //
@@ -95,7 +86,13 @@ type ConsumerConfig struct {
 	DeadEnable                  bool                               `json:"dead_enable"`                   // Optional: 死信队列开关, 默认false; 如果所有校验器都没能校验通过, 应用代码需要自行Ack或者Nack
 	Dead                        *StatusPolicy                      `json:"dead"`                          // Optional: Dead 主题检查策略
 	DiscardEnable               bool                               `json:"discard_enable"`                // Optional: 丢弃消息开关, 默认false
+	Discard                     *StatusPolicy                      `json:"discard"`                       // Optional: Di 主题检查策略
 	HandleTimeout               uint                               `json:"handle_timeout"`                // Optional: 处理消息超时时间 (default: 30 seconds)
+
+	// ------ consumer configuration (multi-level) ------
+	Levels               []internal.TopicLevel                // Required: 默认L1, 且消费的Topic Level级别, len(Topics) == 1 or Topic存在的时候才生效
+	LevelBalanceStrategy internal.BalanceStrategy             // Optional: Topic级别消费策略
+	LevelPolicies        map[internal.TopicLevel]*LevelPolicy // Optional: 级别消费策略
 }
 
 // ------ helper structs ------
@@ -154,4 +151,12 @@ type DLQPolicy struct {
 
 	// RetryLetterTopic specifies the name of the topic where the retry messages will be sent.
 	RetryLetterTopic string
+}
+
+type ConcurrencyPolicy struct {
+	CorePoolSize    uint // Optional: default 1
+	MaximumPoolSize uint // Optional: default 1
+	KeepAliveTime   uint // Optional: default 1 min
+
+	PanicHandler func(interface{}) // Optional, handle panics comes from executing message handler
 }

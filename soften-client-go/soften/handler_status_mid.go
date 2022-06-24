@@ -4,6 +4,8 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/shenqianjin/soften-client-go/soften/checker"
+
 	"github.com/shenqianjin/soften-client-go/soften/config"
 	"github.com/shenqianjin/soften-client-go/soften/message"
 
@@ -14,7 +16,7 @@ import (
 type statusHandleOptions struct {
 	topic       string                 // default ${TOPIC}_RETRYING, 固定后缀，不允许定制
 	status      internal.MessageStatus // MessageStatus
-	deadHandler internal.Handler       //
+	deadHandler internalHandler        //
 	//levels      []TopicLevel    //
 	//enable      bool                   // 内部判断使用
 }
@@ -26,7 +28,7 @@ type statusHandler struct {
 }
 
 func newStatusHandler(client *client, policy *config.StatusPolicy, options statusHandleOptions) (*statusHandler, error) {
-	rt, err := newReRouter(client.logger, client, reRouterOptions{Topic: options.topic})
+	rt, err := newReRouter(client.logger, client.Client, reRouterOptions{Topic: options.topic})
 	if err != nil {
 		return nil, err
 	}
@@ -34,7 +36,10 @@ func newStatusHandler(client *client, policy *config.StatusPolicy, options statu
 	return statusRouter, nil
 }
 
-func (sr *statusHandler) Handle(msg pulsar.ConsumerMessage) bool {
+func (sr *statusHandler) Handle(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
+	if !cheStatus.IsPassed() {
+		return false
+	}
 	statusReconsumeTimes := message.Parser.GetStatusReconsumeTimes(sr.options.status, msg)
 	// check to dead if exceed max status reconsume times
 	if statusReconsumeTimes >= sr.policy.ConsumeMaxTimes {
@@ -114,7 +119,7 @@ func (sr *statusHandler) Handle(msg pulsar.ConsumerMessage) bool {
 
 func (sr *statusHandler) tryDeadInternal(msg pulsar.ConsumerMessage) bool {
 	if sr.options.deadHandler != nil {
-		return sr.options.deadHandler.Handle(msg)
+		return sr.options.deadHandler.Handle(msg, checker.CheckStatusPassed)
 	}
 	return false
 }

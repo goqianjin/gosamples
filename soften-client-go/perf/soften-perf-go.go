@@ -5,7 +5,9 @@ import (
 	_ "net/http/pprof"
 	"os"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/shenqianjin/soften-client-go/soften/log"
+
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
@@ -26,13 +28,18 @@ func main() {
 }
 
 func initLogger(debug bool) {
-	log.SetFormatter(&log.TextFormatter{
+	formatter := &logrus.TextFormatter{
 		FullTimestamp:   true,
-		TimestampFormat: "15:04:05.000",
-	})
-	level := log.InfoLevel
-	if debug {
-		level = log.DebugLevel
+		TimestampFormat: "2006-01-02T15:04:05.000",
 	}
-	log.SetLevel(level)
+	softenLogFormatter := log.NewTextFormatter(formatter)
+	//softenLogFormatter := formatter
+
+	logrus.SetFormatter(softenLogFormatter)
+	level := logrus.InfoLevel
+	if debug {
+		level = logrus.DebugLevel
+	}
+	logrus.SetReportCaller(true)
+	logrus.SetLevel(level)
 }

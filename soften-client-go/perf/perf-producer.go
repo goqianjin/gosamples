@@ -3,9 +3,10 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
-	"github.com/shenqianjin/soften-client-go/perf/internal"
+	"github.com/shenqianjin/soften-client-go/soften/config"
 
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/beefsack/go-rate"
@@ -16,7 +17,7 @@ import (
 // produceArgs define the parameters required by perfProduce
 type produceArgs struct {
 	Topic              string
-	Rate               int
+	Rates              []uint64 // ordered produce rates: [normal, radical 1, radical 2, ..., radical N]
 	BatchingTimeMillis int
 	BatchingMaxSize    int
 	MessageSize        int
@@ -38,6 +39,8 @@ func (p *producer) perfProduce(stopCh <-chan struct{}) {
 	log.Info("Client config: ", string(b))
 	b, _ = json.MarshalIndent(p.produceArgs, "", "  ")
 	log.Info("Producer config: ", string(b))
+	log.Info("asdfasdf111")
+	log.Infof("asdfasdf")
 	// create client
 	client, err := newClient(p.clientArgs)
 	if err != nil {
@@ -45,11 +48,11 @@ func (p *producer) perfProduce(stopCh <-chan struct{}) {
 	}
 	defer client.Close()
 	// create producer
-	realProducer, err := client.CreateProducer(pulsar.ProducerOptions{
-		Topic:                   p.produceArgs.Topic,
-		MaxPendingMessages:      p.produceArgs.ProducerQueueSize,
-		BatchingMaxPublishDelay: time.Millisecond * time.Duration(p.produceArgs.BatchingTimeMillis),
-		BatchingMaxSize:         uint(p.produceArgs.BatchingMaxSize * 1024),
+	realProducer, err := client.CreateProducer(config.ProducerConfig{
+		Topic:              p.produceArgs.Topic,
+		MaxPendingMessages: p.produceArgs.ProducerQueueSize,
+		//BatchingMaxPublishDelay: time.Millisecond * time.Duration(p.produceArgs.BatchingTimeMillis),
+		BatchingMaxSize: uint(p.produceArgs.BatchingMaxSize * 1024),
 	})
 	if err != nil {
 		log.Fatal(err)
@@ -60,20 +63,36 @@ func (p *producer) perfProduce(stopCh <-chan struct{}) {
 	// start monitoring: async
 	go p.stats(stopCh, ch)
 	// start perfProduce: sync to hang
-	p.internalProduce(realProducer, stopCh, ch)
+	// radical
+	if len(p.produceArgs.Rates) > 1 {
+		for index, r := range p.produceArgs.Rates[1:] {
+			go p.internalProduce(realProducer, r, fmt.Sprintf("Radical-%d", index+1), stopCh, ch)
+		}
+	}
+	normalRate := uint64(0)
+	if len(p.produceArgs.Rates) > 0 {
+		normalRate = p.produceArgs.Rates[0]
+
+	}
+	// normal
+	p.internalProduce(realProducer, normalRate, "Radical-0", stopCh, ch)
 }
 
-func (p *producer) internalProduce(realProducer pulsar.Producer, stopCh <-chan struct{}, ch chan<- float64) {
+func (p *producer) internalProduce(realProducer pulsar.Producer, r uint64, radical string, stopCh <-chan struct{}, ch chan<- float64) {
 	ctx := context.Background()
 	payload := make([]byte, p.produceArgs.MessageSize)
 	var rateLimiter *rate.RateLimiter
-	if p.produceArgs.Rate > 0 {
-		rateLimiter = rate.New(p.produceArgs.Rate, time.Second)
+	if r > 0 {
+		rateLimiter = rate.New(int(r), time.Second)
 	}
-	radicalChoicePolicy := internal.NewRateChoicePolicy(p.produceArgs.RadicalRate)
+	/*var radicalChoicePolicy internal.ChoicePolicy
+	if p.produceArgs.RadicalRate > 0 {
+		radicalChoicePolicy = internal.NewRateChoicePolicy(p.produceArgs.RadicalRate)
+	}*/
 	for {
 		select {
 		case <-stopCh:
+			log.Infof("Closing produce stats printer")
 			return
 		default:
 		}
@@ -81,15 +100,21 @@ func (p *producer) internalProduce(realProducer pulsar.Producer, stopCh <-chan s
 		if rateLimiter != nil {
 			rateLimiter.Wait()
 		}
-		choice := radicalChoicePolicy.Next()
+
 		msg := &pulsar.ProducerMessage{
 			Payload: payload,
 		}
-		if choice == 1 { // 激进模式
-			msg.Properties = map[string]string{"RadicalFlag": "true"}
-		}
-		start := time.Now()
 
+		if radical != "" {
+			msg.Properties = map[string]string{"Radical": radical}
+		} /* else if radicalChoicePolicy != nil {
+			choice := radicalChoicePolicy.Next()
+			if choice == 1 { // 激进模式
+				msg.Properties = map[string]string{"Radical": "Radical-1"}
+			}
+		}*/
+
+		start := time.Now()
 		realProducer.SendAsync(ctx, msg, func(msgID pulsar.MessageID, message *pulsar.ProducerMessage, e error) {
 			if e != nil {
 				log.WithError(e).Fatal("Failed to publish")
@@ -114,8 +139,9 @@ func (p *producer) stats(stop <-chan struct{}, latencyCh <-chan float64) {
 			return
 		case <-tick.C:
 			messageRate := float64(messagesPublished) / float64(10)
-			log.Infof(`Stats - Publish rate: %6.1f msg/s - %6.1f Mbps - 
-				Finished Latency ms: 50%% %5.1f -95%% %5.1f - 99%% %5.1f - 99.9%% %5.1f - max %6.1f`,
+			log.Infof(`>>>>>>>>>>
+		Stats - Publish rate: %6.1f msg/s - %6.1f Mbps - 
+				Finished Latency ms: 50%% %5.1f - 95%% %5.1f - 99%% %5.1f - 99.9%% %5.1f - max %6.1f`,
 				messageRate,
 				messageRate*float64(p.produceArgs.MessageSize)/1024/1024*8,
 				q.Query(0.5)*1000,

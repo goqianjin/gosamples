@@ -19,13 +19,13 @@ type perfArgs struct {
 }
 
 type performer struct {
-	pArgs  *perfArgs
-	stopCh <-chan struct{}
+	pArgs *perfArgs
+	//stopCh <-chan struct{}
 }
 
 func newPerformer(pArgs *perfArgs) *performer {
 	p := &performer{pArgs: pArgs}
-	p.stopCh = p.initStopCh()
+	//p.stopCh = p.initStopCh()
 	return p
 }
 
@@ -48,17 +48,36 @@ func (p *performer) Start() {
 func (p *performer) RunMetrics() {
 	if p.pArgs.PrometheusPort > 0 {
 		go func() {
-			log.Info("Starting Prometheus metrics at http://localhost:", p.pArgs.PrometheusPort, "/metrics")
-			http.Handle("/metrics", promhttp.Handler())
-			http.ListenAndServe(":"+strconv.Itoa(p.pArgs.PrometheusPort), nil)
+			if err := p.serverMetrics("0.0.0.0:"+strconv.Itoa(p.pArgs.PrometheusPort), p.initStopCh()); err != nil && err != http.ErrServerClosed {
+				log.WithError(err).Error("Unable to start prometheus metrics server")
+			}
 		}()
 	}
+}
+
+func (p *performer) serverMetrics(addr string, stop <-chan struct{}) error {
+	mux := http.NewServeMux()
+	s := http.Server{
+		Addr:    addr,
+		Handler: mux,
+	}
+
+	go func() {
+		<-stop
+		log.Infof("Shutting down metrics server")
+		s.Shutdown(context.Background())
+	}()
+
+	log.Info("Starting Prometheus metrics at http://localhost:", p.pArgs.PrometheusPort, "/metrics")
+	mux.Handle("/metrics", promhttp.Handler())
+	return s.ListenAndServe()
+	//http.ListenAndServe(":"+strconv.Itoa(p.pArgs.PrometheusPort), mux)
 }
 
 func (p *performer) RunProfiling() {
 	if p.pArgs.profilePort > 0 {
 		go func() {
-			if err := p.serveProfiling("0.0.0.0:"+strconv.Itoa(p.pArgs.profilePort), p.stopCh); err != nil && err != http.ErrServerClosed {
+			if err := p.serveProfiling("0.0.0.0:"+strconv.Itoa(p.pArgs.profilePort), p.initStopCh()); err != nil && err != http.ErrServerClosed {
 				log.WithError(err).Error("Unable to start debug profiling server")
 			}
 		}()
@@ -71,7 +90,7 @@ func (p *performer) RunProfiling() {
 func (p *performer) serveProfiling(addr string, stop <-chan struct{}) error {
 	s := http.Server{
 		Addr:    addr,
-		Handler: http.DefaultServeMux,
+		Handler: http.DefaultServeMux, // /debug/pprof 相关的handler import -> init 写到了这里
 	}
 	go func() {
 		<-stop

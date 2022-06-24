@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log"
 
 	"github.com/shenqianjin/soften-client-go/soften/checker"
@@ -16,7 +17,11 @@ func main() {
 		log.Fatal(err)
 	}
 	defer cli.Close()
-	_, err = cli.SubscribeRegular(config.ConsumerConfig{}, handleBiz,
+	consumer, err := cli.CreateListener(config.ConsumerConfig{})
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = consumer.Start(context.Background(), handleBiz,
 		checker.PreBlockingChecker(checkQuota), checker.PrePendingChecker(checkRate))
 	if err != nil {
 		log.Fatal(err)
@@ -27,10 +32,10 @@ func handleBiz(message pulsar.Message) (bool, error) {
 	return true, nil
 }
 
-func checkRate(message pulsar.Message) bool {
-	return true
+func checkRate(message pulsar.Message) checker.CheckStatus {
+	return checker.CheckStatusPassed
 }
 
-func checkQuota(message pulsar.Message) bool {
-	return true
+func checkQuota(message pulsar.Message) checker.CheckStatus {
+	return checker.CheckStatusPassed
 }

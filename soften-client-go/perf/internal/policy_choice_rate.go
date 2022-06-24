@@ -1,10 +1,11 @@
 package internal
 
-import "math/rand"
+import (
+	"math/rand"
+)
 
 type rateChoicePolicy struct {
-	rate     float64
-	choiceCh chan uint
+	rate float64
 }
 
 func NewRateChoicePolicy(rate float64) *rateChoicePolicy {
@@ -12,29 +13,20 @@ func NewRateChoicePolicy(rate float64) *rateChoicePolicy {
 		rate = 0
 	}
 	policy := &rateChoicePolicy{
-		rate:     rate,
-		choiceCh: make(chan uint, 100),
-	}
-
-	if policy.rate > 0 {
-		go policy.generate()
+		rate: rate,
 	}
 
 	return policy
 }
 
-func (p *rateChoicePolicy) generate() {
-	r := rand.Float64()
-	if r < p.rate {
-		p.choiceCh <- 1
-	} else {
-		p.choiceCh <- 0
-	}
-}
-
 func (p *rateChoicePolicy) Next() uint {
-	if p.rate > 0 {
+	if p.rate <= 0 {
 		return 0
 	}
-	return <-p.choiceCh
+	r := rand.Float64()
+	if r < p.rate {
+		return 1
+	} else {
+		return 0
+	}
 }

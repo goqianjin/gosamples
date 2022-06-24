@@ -32,7 +32,7 @@ func newConsumerCommand(perf *performer, cliArgs *clientArgs) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			cArgs.Topic = args[0]
-			c.perfConsume(perf.stopCh)
+			c.perfConsume(perf.initStopCh())
 		},
 	}
 	flags := cmd.Flags()
@@ -52,7 +52,7 @@ func newProducerCommand(perf *performer, cliArgs *clientArgs) *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			pArgs.Topic = args[0]
-			p.perfProduce(perf.stopCh)
+			p.perfProduce(perf.initStopCh())
 		},
 	}
 	flags := cmd.Flags()
@@ -77,13 +77,13 @@ func newProduceConsumeCommand(perf *performer, cliArgs *clientArgs) *cobra.Comma
 			// produce
 			go func() {
 				pArgs.Topic = args[0]
-				p.perfProduce(perf.stopCh)
+				p.perfProduce(perf.initStopCh())
 				group.Done()
 			}()
 			// consume
 			go func() {
 				cArgs.Topic = args[0]
-				c.perfConsume(perf.stopCh)
+				c.perfConsume(perf.initStopCh())
 				group.Done()
 			}()
 			group.Wait()

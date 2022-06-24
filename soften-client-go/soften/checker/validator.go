@@ -4,45 +4,42 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/shenqianjin/soften-client-go/soften/message"
-
-	"github.com/shenqianjin/soften-client-go/soften/config"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 )
 
-var Validator = &confValidator{}
+var Validator = &validator{}
 
-type confValidator struct {
+type validator struct {
 }
 
-func (v *confValidator) ValidateConsumeCheckpoint(conf *config.ConsumerConfig, checkpoints ...internal.Checkpoint) (map[internal.CheckType]*internal.Checkpoint, error) {
+func (v *validator) ValidateConsumeCheckpoint(checkpoints []Checkpoint) (map[internal.CheckType]*Checkpoint, error) {
 	// 校验checker: checker可以在对应配置enable=false的情况下存在
-	checkpointMap := make(map[internal.CheckType]*internal.Checkpoint)
+	checkpointMap := make(map[internal.CheckType]*Checkpoint)
 	for _, checkOpt := range checkpoints {
 		if checkOpt.CheckType == "" {
 			return nil, errors.New(" internal.CheckType can not be empty")
 		}
 		if v.isPreStatusCheckType(checkOpt.CheckType) {
-			if checkOpt.PreStatusChecker == nil {
-				return nil, errors.New(fmt.Sprintf("PreStatusChecker can not be nil for input checkOption: %s", checkOpt.CheckType))
+			if checkOpt.Before == nil {
+				return nil, errors.New(fmt.Sprintf("BeforeCheckFunc can not be nil for input checkOption: %s", checkOpt.CheckType))
 			}
 		} else if v.isPostStatusCheckType(checkOpt.CheckType) {
-			if checkOpt.PostStatusChecker == nil {
-				return nil, errors.New(fmt.Sprintf("PostStatusChecker can not be nil for input checkOption: %s", checkOpt.CheckType))
+			if checkOpt.After == nil {
+				return nil, errors.New(fmt.Sprintf("AfterCheckFunc can not be nil for input checkOption: %s", checkOpt.CheckType))
 			}
 		} else if v.isPreRerouteCheckType(checkOpt.CheckType) {
-			if checkOpt.PreRerouteChecker == nil {
-				return nil, errors.New(fmt.Sprintf("PreRerouteChecker can not be nil for input checkOption: %s", checkOpt.CheckType))
+			if checkOpt.Before == nil {
+				return nil, errors.New(fmt.Sprintf("BeforeForReroute can not be nil for input checkOption: %s", checkOpt.CheckType))
 			}
 		} else if v.isPostRerouteCheckType(checkOpt.CheckType) {
-			if checkOpt.PostRerouteChecker == nil {
-				return nil, errors.New(fmt.Sprintf("PostRerouteChecker can not be nil for input checkOption: %s", checkOpt.CheckType))
+			if checkOpt.After == nil {
+				return nil, errors.New(fmt.Sprintf("AfterForReroute can not be nil for input checkOption: %s", checkOpt.CheckType))
 			}
 		}
 		checkpointMap[checkOpt.CheckType] = &checkOpt
 	}
 	// 一致性校验
-	if conf.PendingEnable {
+	/*if conf.PendingEnable {
 		if conf.Pending.CheckerMandatory && v.findCheckpointByType(checkpointMap, CheckTypePrePending, CheckTypePostPending) == nil {
 			return nil, errors.New(fmt.Sprintf("[%s] checkOption is missing. please add one or disable the mandatory if necessary", message.StatusPending))
 		}
@@ -56,11 +53,11 @@ func (v *confValidator) ValidateConsumeCheckpoint(conf *config.ConsumerConfig, c
 		if conf.Pending.CheckerMandatory && v.findCheckpointByType(checkpointMap, CheckTypePreRetrying, CheckTypePostRetrying) == nil {
 			return nil, errors.New(fmt.Sprintf("[%s] checkOption is missing. please add one or disable the mandatory if necessary", message.StatusRetrying))
 		}
-	}
+	}*/
 	return checkpointMap, nil
 }
 
-func (v *confValidator) findCheckpointByType(checkpointMap map[internal.CheckType]*internal.Checkpoint, checkTypes ...internal.CheckType) *internal.Checkpoint {
+func (v *validator) findCheckpointByType(checkpointMap map[internal.CheckType]*Checkpoint, checkTypes ...internal.CheckType) *Checkpoint {
 	for _, checkType := range checkTypes {
 		if opt, ok := checkpointMap[checkType]; ok {
 			return opt
@@ -69,7 +66,7 @@ func (v *confValidator) findCheckpointByType(checkpointMap map[internal.CheckTyp
 	return nil
 }
 
-func (v *confValidator) isPreStatusCheckType(checkType internal.CheckType) bool {
+func (v *validator) isPreStatusCheckType(checkType internal.CheckType) bool {
 	for _, ct := range PreCheckTypes() {
 		if v.isPreRerouteCheckType(ct) {
 			continue
@@ -81,7 +78,7 @@ func (v *confValidator) isPreStatusCheckType(checkType internal.CheckType) bool 
 	return false
 }
 
-func (v *confValidator) isPostStatusCheckType(checkType internal.CheckType) bool {
+func (v *validator) isPostStatusCheckType(checkType internal.CheckType) bool {
 	for _, ct := range DefaultPostCheckTypes() {
 		if v.isPostRerouteCheckType(ct) {
 			continue
@@ -93,10 +90,10 @@ func (v *confValidator) isPostStatusCheckType(checkType internal.CheckType) bool
 	return false
 }
 
-func (v *confValidator) isPreRerouteCheckType(checkType internal.CheckType) bool {
+func (v *validator) isPreRerouteCheckType(checkType internal.CheckType) bool {
 	return checkType == CheckTypePreReroute
 }
 
-func (v *confValidator) isPostRerouteCheckType(checkType internal.CheckType) bool {
+func (v *validator) isPostRerouteCheckType(checkType internal.CheckType) bool {
 	return checkType == CheckTypePostReroute
 }

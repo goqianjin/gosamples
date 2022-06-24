@@ -22,6 +22,7 @@ func newClient(clientArgs *clientArgs) (soften.Client, error) {
 	clientOpts := config.ClientConfig{
 		URL: clientArgs.ServiceURL,
 	}
+	//log.SetLevel(log.DebugLevel)
 
 	if clientArgs.TokenFile != "" {
 		// read JWT from the file

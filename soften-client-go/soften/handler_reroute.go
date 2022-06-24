@@ -3,6 +3,8 @@ package soften
 import (
 	"sync"
 
+	"github.com/shenqianjin/soften-client-go/soften/checker"
+
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/apache/pulsar-client-go/pulsar/log"
 	"github.com/shenqianjin/soften-client-go/soften/config"
@@ -24,11 +26,11 @@ func newRerouteHandler(client *client, policy *config.ReroutePolicy) (*rerouteHa
 	return rtrHandler, nil
 }
 
-func (hd *rerouteHandler) Handle(msg pulsar.ConsumerMessage, topic string) bool {
-	if topic == "" {
+func (hd *rerouteHandler) Handle(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
+	if !cheStatus.IsPassed() || cheStatus.GetRerouteTopic() == "" {
 		return false
 	}
-	rtr, err := hd.internalSafeGetReRouterInAsync(topic)
+	rtr, err := hd.internalSafeGetReRouterInAsync(cheStatus.GetRerouteTopic())
 	if err != nil {
 		return false
 	}

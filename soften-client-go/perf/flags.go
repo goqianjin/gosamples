@@ -1,6 +1,8 @@
 package main
 
 import (
+	"strconv"
+	"strings"
 	"sync"
 
 	"github.com/spf13/pflag"
@@ -32,17 +34,19 @@ func (l *flagLoaderImpl) loadConsumeFlags(flags *pflag.FlagSet, cArgs *consumeAr
 	flags.Float64Var(&cArgs.costPositiveJitter, "cost-delay-jitter", 1, "cost delay jitter rate")
 	flags.Float64Var(&cArgs.costNegativeJitter, "cost-precede-jitter", 1, "cost precede jitter rate")
 
-	flags.UintVar(&cArgs.doneWeight, "done-weight", 100, "weight of handling message as done status")
-	flags.BoolVar(&cArgs.retryingEnable, "retrying-enable", false, "switch of handling message as retrying status")
-	flags.UintVar(&cArgs.retryingWeight, "retrying-weight", 60, "weight of handling message as retrying status")
-	flags.BoolVar(&cArgs.pendingEnable, "pending-enable", false, "switch of handling message as pending status")
-	flags.UintVar(&cArgs.pendingWeight, "pending-weight", 30, "weight of handling message as pending status")
-	flags.BoolVar(&cArgs.blockingEnable, "blocking-enable", false, "switch of handling message as blocking status")
-	flags.UintVar(&cArgs.blockingWeight, "blocking-weight", 10, "weight of handling message as blocking status")
-	flags.BoolVar(&cArgs.deadEnable, "dead-enable", false, "switch of handling message as dead status")
-	flags.UintVar(&cArgs.deadWeight, "dead-weight", 5, "weight of handling message as dead status")
-	flags.BoolVar(&cArgs.discardEnable, "discard-enable", false, "switch of handling message as discard status")
-	flags.UintVar(&cArgs.discardWeight, "discard-weight", 5, "weight of handling message as discard status")
+	var limitStr string
+	flags.StringVarP(&limitStr, "limit", "l", "10,10", "Consume limit. Set to 0 to go un-throttled, append with ',' for radicals Limits")
+	cArgs.Limits = l.parseUint64Array(limitStr)
+	var concurrencyStr string
+	flags.StringVarP(&concurrencyStr, "concurrency", "c", "3,3", "Consume concurrency. Set to 0 to go un-throttled, append with ',' for radicals Limits")
+	cArgs.RadicalConcurrences = l.parseUint64Array(concurrencyStr)
+
+	flags.UintVar(&cArgs.handleDoneWeight, "done-weight", 100, "weight of handling message as done status")
+	flags.UintVar(&cArgs.handleRetryingWeight, "retrying-weight", 60, "weight of handling message as retrying status")
+	flags.UintVar(&cArgs.handlePendingWeight, "pending-weight", 30, "weight of handling message as pending status")
+	flags.UintVar(&cArgs.handleBlockingWeight, "blocking-weight", 10, "weight of handling message as blocking status")
+	flags.UintVar(&cArgs.handleDeadWeight, "dead-weight", 5, "weight of handling message as dead status")
+	flags.UintVar(&cArgs.handleDiscardWeight, "discard-weight", 5, "weight of handling message as discard status")
 
 	if cArgs.costAverageInMs < 0 {
 		cArgs.costAverageInMs = 0
@@ -50,18 +54,35 @@ func (l *flagLoaderImpl) loadConsumeFlags(flags *pflag.FlagSet, cArgs *consumeAr
 	if cArgs.costNegativeJitter > 1 {
 		cArgs.costNegativeJitter = 1
 	}
-	if cArgs.doneWeight <= 0 {
-		cArgs.doneWeight = 1
+	if cArgs.handleDoneWeight <= 0 {
+		cArgs.handleDoneWeight = 1
 	}
 
 }
 
 func (l *flagLoaderImpl) loadProduceFlags(flags *pflag.FlagSet, pArgs *produceArgs) {
-	flags.IntVarP(&pArgs.Rate, "rate", "r", 0, "Publish rate. Set to 0 to go un-throttled")
+	var rateStr string
+	flags.StringVarP(&rateStr, "rate", "r", "80,20", "Publish rate. Set to 0 to go un-throttled, append with ',' for radicals rates")
+	pArgs.Rates = l.parseUint64Array(rateStr)
 	flags.IntVarP(&pArgs.BatchingTimeMillis, "batching-time", "b", 1, "Batching grouping time in millis")
 	flags.IntVarP(&pArgs.BatchingMaxSize, "batching-max-size", "", 128, "Max size of a batch (in KB)")
 	flags.IntVarP(&pArgs.MessageSize, "msg-size", "s", 1024, "Message size (int B)")
 	flags.IntVarP(&pArgs.ProducerQueueSize, "queue-size", "q", 1000, "Produce queue size")
-	flags.Float64Var(&pArgs.RadicalRate, "radical-rate", 0.2, "the rate of radical rate")
+	flags.Float64Var(&pArgs.RadicalRate, "radical-rate", 0.8, "the rate of radical rate")
 
+}
+
+func (l *flagLoaderImpl) parseUint64Array(str string) []uint64 {
+	nums := make([]uint64, 0)
+	if str != "" {
+		numsStr := strings.Split(str, ",")
+		for _, ns := range numsStr {
+			if n, err := strconv.ParseUint(ns, 10, 32); err != nil {
+				panic(err)
+			} else {
+				nums = append(nums, n)
+			}
+		}
+	}
+	return nums
 }

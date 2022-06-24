@@ -3,13 +3,13 @@ package soften
 import (
 	"errors"
 
-	"github.com/shenqianjin/soften-client-go/soften/topic"
-
-	"github.com/shenqianjin/soften-client-go/soften/message"
+	"github.com/shenqianjin/soften-client-go/soften/checker"
 
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/apache/pulsar-client-go/pulsar/log"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
+	"github.com/shenqianjin/soften-client-go/soften/message"
+	"github.com/shenqianjin/soften-client-go/soften/topic"
 )
 
 type gradeHandler struct {
@@ -30,7 +30,7 @@ func newGradeHandler(client *client, tpc string, level internal.TopicLevel) (*gr
 		return nil, err
 	}
 	routerOption := reRouterOptions{Topic: tpc + suffix}
-	rt, err := newReRouter(client.logger, client, routerOption)
+	rt, err := newReRouter(client.logger, client.Client, routerOption)
 	if err != nil {
 		return nil, err
 	}
@@ -38,7 +38,10 @@ func newGradeHandler(client *client, tpc string, level internal.TopicLevel) (*gr
 	return hd, nil
 }
 
-func (hd *gradeHandler) Handle(msg pulsar.ConsumerMessage) bool {
+func (hd *gradeHandler) Handle(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
+	if !cheStatus.IsPassed() {
+		return false
+	}
 	// prepare to upgrade / degrade
 	props := make(map[string]string)
 	for k, v := range msg.Properties() {

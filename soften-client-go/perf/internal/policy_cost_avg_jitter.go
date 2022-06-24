@@ -10,11 +10,12 @@ type CostPolicy interface {
 }
 
 type avgCostPolicy struct {
-	avg            int64
+	avg            float64
 	positiveJitter float64
 	negativeJitter float64
 
-	costCh chan int64
+	base        float64
+	jitterRange float64
 }
 
 func NewAvgCostPolicy(avg int64, positiveJitter, negativeJitter float64) *avgCostPolicy {
@@ -28,28 +29,19 @@ func NewAvgCostPolicy(avg int64, positiveJitter, negativeJitter float64) *avgCos
 		negativeJitter = 0
 	}
 	policy := &avgCostPolicy{
-		avg:            avg,
+		avg:            float64(avg),
 		positiveJitter: positiveJitter,
 		negativeJitter: negativeJitter,
-		costCh:         make(chan int64, 100),
 	}
-
-	go policy.generate()
-
+	policy.base = policy.avg * (1 - policy.negativeJitter)
+	policy.jitterRange = policy.positiveJitter + policy.negativeJitter
 	return policy
 }
 
 func (p *avgCostPolicy) Next() time.Duration {
-	cost := <-p.costCh
-	return time.Duration(cost) * time.Millisecond
-}
-
-func (p *avgCostPolicy) generate() {
-	base := float64(p.avg) * (1 - p.negativeJitter)
-	jitter := rand.Float64() * (p.positiveJitter + p.negativeJitter)
-	cost := base + jitter
+	cost := p.base + rand.Float64()*p.jitterRange*p.avg
 	if cost < 0 {
-		cost = 0
+		return 0
 	}
-	p.costCh <- int64(cost)
+	return time.Duration(cost) * time.Millisecond
 }

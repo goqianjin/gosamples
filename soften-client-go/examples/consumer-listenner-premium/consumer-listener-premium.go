@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -30,11 +31,13 @@ func NewService() *service {
 	}
 	defer cli.Close()
 	// start listening
-	_, err = cli.SubscribePremium(
-		config.ConsumerConfig{Topics: []string{"XXX-JOB", "XXX-JOB-L1", "XXX-JOB-S1"}},
-		svc.handleMessage,
-		checker.PrePendingChecker(func(message pulsar.Message) (passed bool) {
-			return false
+	listener, err := cli.CreateListener(config.ConsumerConfig{Topics: []string{"XXX-JOB", "XXX-JOB-L1", "XXX-JOB-S1"}})
+	if err != nil {
+		log.Fatal(err)
+	}
+	err = listener.StartPremium(context.Background(), svc.handleMessage,
+		checker.PrePendingChecker(func(message pulsar.Message) checker.CheckStatus {
+			return checker.CheckStatusPassed
 		}))
 	if err != nil {
 		log.Fatal(err)

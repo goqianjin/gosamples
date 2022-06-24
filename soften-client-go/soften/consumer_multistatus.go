@@ -54,6 +54,7 @@ func newMultiStatusConsumer(consumerLogger log.Logger, client *client, level int
 	}
 	// start to listen message from all status multiStatusConsumer
 	go cs.retrieveStatusMessages()
+	cs.logger.Infof("complete subscribing multi-status consumer on level: %v", level)
 	return cs, nil
 }
 

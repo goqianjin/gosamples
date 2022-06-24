@@ -1,18 +1,24 @@
 package soften
 
 import (
+	"github.com/apache/pulsar-client-go/pulsar"
+	"github.com/shenqianjin/soften-client-go/soften/checker"
 	"github.com/shenqianjin/soften-client-go/soften/config"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 	"github.com/shenqianjin/soften-client-go/soften/message"
 )
 
+type internalHandler interface {
+	Handle(msg pulsar.ConsumerMessage, checkStatus checker.CheckStatus) (success bool)
+}
+
 // ------ general consume handlers ------
 
 type generalConsumeHandlers struct {
-	rerouteHandler internal.RerouteHandler // 重路由处理器: Reroute
-	deadHandler    internal.Handler        // 状态处理器
-	doneHandler    internal.Handler        // 状态处理器
-	discardHandler internal.Handler        // 状态处理器
+	rerouteHandler internalHandler // 重路由处理器: Reroute
+	deadHandler    internalHandler // 状态处理器
+	doneHandler    internalHandler // 状态处理器
+	discardHandler internalHandler // 状态处理器
 }
 
 type generalConsumeHandlerOptions struct {
@@ -62,11 +68,11 @@ func newGeneralConsumeHandlers(client *client, conf generalConsumeHandlerOptions
 // ------ leveled consume handlers ------
 
 type leveledConsumeHandlers struct {
-	blockingHandler internal.Handler // 状态处理器
-	pendingHandler  internal.Handler // 状态处理器
-	retryingHandler internal.Handler // 状态处理器
-	upgradeHandler  internal.Handler // 状态处理器: 升级为NewReady
-	degradeHandler  internal.Handler // 状态处理器: 升级为NewReady
+	blockingHandler internalHandler // 状态处理器
+	pendingHandler  internalHandler // 状态处理器
+	retryingHandler internalHandler // 状态处理器
+	upgradeHandler  internalHandler // 状态处理器: 升级为NewReady
+	degradeHandler  internalHandler // 状态处理器: 升级为NewReady
 }
 
 type leveledConsumeHandlerOptions struct {
@@ -87,7 +93,7 @@ type leveledConsumeHandlerOptions struct {
 
 // newLeveledConsumeHandlers create handlers based on different levels.
 // the topics[0], xxxEnable, xxxStatusPolicy and (topics[0] + Upgrade/DegradeLevel) parameters is used in this construction.
-func newLeveledConsumeHandlers(client *client, options leveledConsumeHandlerOptions, deadHandler internal.Handler) (*leveledConsumeHandlers, error) {
+func newLeveledConsumeHandlers(client *client, options leveledConsumeHandlerOptions, deadHandler internalHandler) (*leveledConsumeHandlers, error) {
 	handlers := &leveledConsumeHandlers{
 		//multiStatusConsumeFacade: multiStatusConsumeFacade,
 		//options:   options,

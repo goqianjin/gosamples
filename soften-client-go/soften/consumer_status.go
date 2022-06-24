@@ -3,6 +3,8 @@ package soften
 import (
 	"time"
 
+	"github.com/shenqianjin/soften-client-go/soften/checker"
+
 	"github.com/shenqianjin/soften-client-go/soften/message"
 
 	"github.com/shenqianjin/soften-client-go/soften/config"
@@ -18,10 +20,10 @@ type statusConsumer struct {
 	status          internal.MessageStatus
 	policy          *config.StatusPolicy
 	statusMessageCh chan ConsumerMessage // channel used to deliver message to clients
-	handler         internal.Handler
+	handler         internalHandler
 }
 
-func newStatusConsumer(pulsarConsumer pulsar.Consumer, status internal.MessageStatus, policy *config.StatusPolicy, handler internal.Handler) *statusConsumer {
+func newStatusConsumer(pulsarConsumer pulsar.Consumer, status internal.MessageStatus, policy *config.StatusPolicy, handler internalHandler) *statusConsumer {
 	sc := &statusConsumer{
 		Consumer:        pulsarConsumer,
 		status:          status,
@@ -63,7 +65,7 @@ func (sc *statusConsumer) start() {
 		}
 
 		// reentrant again or Nack util meet the reconsume time
-		if ok := sc.handler.Handle(msg); ok {
+		if ok := sc.handler.Handle(msg, checker.CheckStatusPassed); ok {
 			continue
 		}
 

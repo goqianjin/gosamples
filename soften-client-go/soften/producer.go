@@ -37,6 +37,7 @@ func newProducer(client *client, conf *config.ProducerConfig, checkers ...intern
 		routePolicy: conf.Route,
 		checkers:    checkers,
 	}
+	producer.logger.Infof("Soften producer (topic:%s) is ready", conf.Topic)
 	return producer, nil
 }
 
@@ -123,7 +124,7 @@ func (p *producer) internalSafeGetRouterInAsync(topic string) (*router, error) {
 	if ok {
 		return rtr, nil
 	}
-	if newRtr, err := newRouter(p.logger, p.client, options); err != nil {
+	if newRtr, err := newRouter(p.logger, p.client.Client, options); err != nil {
 		return nil, err
 	} else {
 		rtr = newRtr

@@ -1,9 +1,13 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"sync/atomic"
 	"time"
+
+	"github.com/shenqianjin/soften-client-go/soften/checker"
 
 	"github.com/shenqianjin/soften-client-go/soften/message"
 
@@ -28,17 +32,20 @@ type consumeArgs struct {
 	costPositiveJitter float64
 	costNegativeJitter float64
 
-	doneWeight     uint
-	retryingEnable bool
-	retryingWeight uint
-	pendingEnable  bool
-	pendingWeight  uint
-	blockingEnable bool
-	blockingWeight uint
-	deadEnable     bool
-	deadWeight     uint
-	discardEnable  bool
-	discardWeight  uint
+	handleDoneWeight     uint
+	handleRetryingEnable bool
+	handleRetryingWeight uint
+	handlePendingEnable  bool
+	handlePendingWeight  uint
+	handleBlockingEnable bool
+	handleBlockingWeight uint
+	handleDeadEnable     bool
+	handleDeadWeight     uint
+	handleDiscardEnable  bool
+	handleDiscardWeight  uint
+
+	Limits              []uint64 // 每秒限制
+	RadicalConcurrences []uint64 // 每秒限制
 }
 
 type consumer struct {
@@ -49,6 +56,9 @@ type consumer struct {
 	costPolicy   internal.CostPolicy
 
 	consumeStatCh chan *consumeStat
+
+	//radicalLimiters     map[string]*rate.RateLimiter
+	concurrencyLimiters map[string]internal.ConcurrencyLimiter
 }
 
 type consumeStat struct {
@@ -60,34 +70,59 @@ type consumeStat struct {
 
 func newConsumer(clientArgs *clientArgs, consumerArgs *consumeArgs) *consumer {
 
-	weightMap := map[string]uint{string(message.GotoDone): consumerArgs.doneWeight}
-	if consumerArgs.retryingEnable && consumerArgs.retryingWeight > 0 {
-		weightMap[string(message.GotoRetrying)] = consumerArgs.retryingWeight
+	weightMap := map[string]uint{string(message.GotoDone): consumerArgs.handleDoneWeight}
+	if consumerArgs.handleRetryingEnable && consumerArgs.handleRetryingWeight > 0 {
+		weightMap[string(message.GotoRetrying)] = consumerArgs.handleRetryingWeight
 	}
-	if consumerArgs.pendingEnable && consumerArgs.pendingWeight > 0 {
-		weightMap[string(message.GotoPending)] = consumerArgs.pendingWeight
+	if consumerArgs.handlePendingEnable && consumerArgs.handlePendingWeight > 0 {
+		weightMap[string(message.GotoPending)] = consumerArgs.handlePendingWeight
 	}
-	if consumerArgs.blockingEnable && consumerArgs.blockingWeight > 0 {
-		weightMap[string(message.GotoBlocking)] = consumerArgs.blockingWeight
+	if consumerArgs.handleBlockingEnable && consumerArgs.handleBlockingWeight > 0 {
+		weightMap[string(message.GotoBlocking)] = consumerArgs.handleBlockingWeight
 	}
-	if consumerArgs.deadEnable && consumerArgs.deadWeight > 0 {
-		weightMap[string(message.GotoDead)] = consumerArgs.deadWeight
+	if consumerArgs.handleDeadEnable && consumerArgs.handleDeadWeight > 0 {
+		weightMap[string(message.GotoDead)] = consumerArgs.handleDeadWeight
 	}
-	if consumerArgs.discardEnable && consumerArgs.discardWeight > 0 {
-		weightMap[string(message.GotoDiscard)] = consumerArgs.discardWeight
+	if consumerArgs.handleDiscardEnable && consumerArgs.handleDiscardWeight > 0 {
+		weightMap[string(message.GotoDiscard)] = consumerArgs.handleDiscardWeight
 	}
 	consumeChoice := internal.NewRoundRandWeightGotoPolicy(weightMap)
 
 	// Retry to create producer indefinitely
-	costPolicy := internal.NewAvgCostPolicy(consumerArgs.costAverageInMs, consumerArgs.costPositiveJitter, consumerArgs.costNegativeJitter)
-
-	return &consumer{
-		clientArgs:    clientArgs,
-		consumerArgs:  consumerArgs,
-		choicePolicy:  consumeChoice,
-		costPolicy:    costPolicy,
-		consumeStatCh: make(chan *consumeStat),
+	c := &consumer{
+		clientArgs:          clientArgs,
+		consumerArgs:        consumerArgs,
+		choicePolicy:        consumeChoice,
+		consumeStatCh:       make(chan *consumeStat),
+		concurrencyLimiters: make(map[string]internal.ConcurrencyLimiter),
+		//radicalLimiters:     make(map[string]*rate.RateLimiter),
 	}
+	// initialize cost policy
+	if consumerArgs.costAverageInMs > 0 {
+		c.costPolicy = internal.NewAvgCostPolicy(consumerArgs.costAverageInMs, consumerArgs.costPositiveJitter, consumerArgs.costNegativeJitter)
+	}
+
+	/*if len(consumerArgs.Limits) > 0 {
+		for index, li := range consumerArgs.Limits {
+			if li > 0 {
+				c.radicalLimiters[fmt.Sprintf("Radical-%d", index)] = rate.New(int(li), time.Second)
+			} else {
+				c.radicalLimiters[fmt.Sprintf("Radical-%d", index)] = nil
+			}
+		}
+	}*/
+
+	if len(consumerArgs.RadicalConcurrences) > 0 {
+		for index, con := range consumerArgs.RadicalConcurrences {
+			if con > 0 {
+				c.concurrencyLimiters[fmt.Sprintf("Radical-%d", index)] = internal.NewConcurrencyLimiter(int(con))
+			} else {
+				c.concurrencyLimiters[fmt.Sprintf("Radical-%d", index)] = nil
+			}
+		}
+	}
+
+	return c
 }
 
 func (c *consumer) perfConsume(stop <-chan struct{}) {
@@ -95,6 +130,7 @@ func (c *consumer) perfConsume(stop <-chan struct{}) {
 	log.Info("Client config: ", string(b))
 	b, _ = json.MarshalIndent(c.consumerArgs, "", "  ")
 	log.Info("Consumer config: ", string(b))
+
 	// create client
 	client, err := newClient(c.clientArgs)
 	if err != nil {
@@ -102,23 +138,39 @@ func (c *consumer) perfConsume(stop <-chan struct{}) {
 	}
 	defer client.Close()
 
-	// start monitoring: async
-	go c.stats(stop, c.consumeStatCh)
-
 	// create consumer
-	realConsumer, err := client.SubscribePremium(config.ConsumerConfig{
+	listener, err := client.CreateListener(config.ConsumerConfig{
 		Topic:            c.consumerArgs.Topic,
 		SubscriptionName: c.consumerArgs.SubscriptionName,
-	}, c.internalHandle)
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer realConsumer.Close()
+	defer listener.Close()
 
-	time.Sleep(2 * time.Minute)
+	// start monitoring: async
+	go c.stats(stop, c.consumeStatCh)
 
-	// start perfConsume: sync to hang
-	//c.internalConsume(realConsumer, stop, c.consumeStatCh)
+	// start message listener
+	err = listener.StartPremium(context.Background(), c.internalHandle, checker.PrePendingChecker(c.internalPrePendingChecker))
+	if err != nil {
+		log.Fatal(err)
+	}
+}
+
+func (c *consumer) internalPrePendingChecker(cm pulsar.Message) checker.CheckStatus {
+	if radicalKey, ok := cm.Properties()["Radical"]; ok {
+		if limiter, ok2 := c.concurrencyLimiters[radicalKey]; ok2 && limiter != nil {
+			if !limiter.TryAcquire() {
+				return checker.CheckStatusPassed
+			} else {
+				return checker.CheckStatusFailed.WithHandledDefer(func() {
+					limiter.Release()
+				})
+			}
+		}
+	}
+	return checker.CheckStatusFailed
 }
 
 func (c *consumer) internalHandle(cm pulsar.Message) soften.HandleStatus {
@@ -128,7 +180,13 @@ func (c *consumer) internalHandle(cm pulsar.Message) soften.HandleStatus {
 		receivedLatency: time.Since(cm.PublishTime()).Seconds(),
 	}
 
-	if c.consumerArgs.costAverageInMs != 0 {
+	/*if radicalKey, ok := cm.Properties()["Radical"]; ok {
+		if limiter, ok2 := c.radicalLimiters[radicalKey]; ok2 && limiter != nil {
+			limiter.Wait()
+		}
+	}*/
+
+	if c.consumerArgs.costAverageInMs > 0 {
 		time.Sleep(c.costPolicy.Next()) // 模拟业务处理
 	}
 	result := soften.HandleStatusOk
@@ -167,7 +225,7 @@ func (c *consumer) internalConsume(realConsumer pulsar.Consumer, stop <-chan str
 				receivedLatency: time.Since(cm.PublishTime()).Seconds(),
 			}
 
-			if c.consumerArgs.costAverageInMs != 0 {
+			if c.consumerArgs.costAverageInMs > 0 {
 				time.Sleep(c.costPolicy.Next()) // 模拟业务处理
 			}
 
@@ -195,6 +253,7 @@ func (c *consumer) stats(stop <-chan struct{}, consumeStatCh <-chan *consumeStat
 	for {
 		select {
 		case <-stop:
+			log.Infof("Closing consume stats printer")
 			return
 		case <-tick.C:
 			currentMsgReceived := atomic.SwapInt64(&msgReceived, 0)
@@ -202,10 +261,11 @@ func (c *consumer) stats(stop <-chan struct{}, consumeStatCh <-chan *consumeStat
 			msgRate := float64(currentMsgReceived) / float64(10)
 			bytesRate := float64(currentBytesReceived) / float64(10)
 
-			log.Infof(`Stats - Consume rate: %6.1f msg/s - %6.1f Mbps - 
-				Received Latency ms: 50%% %5.1f -95%% %5.1f - 99%% %5.1f - 99.9%% %5.1f - max %6.1f  
-				Finished Latency ms: 50%% %5.1f -95%% %5.1f - 99%% %5.1f - 99.9%% %5.1f - max %6.1f
-				Comsumed Latency ms: 50%% %5.1f -95%% %5.1f - 99%% %5.1f - 99.9%% %5.1f - max %6.1f`,
+			log.Infof(`<<<<<<<<<<
+		Stats - Consume rate: %6.1f msg/s - %6.1f Mbps - 
+				Received Latency ms: 50%% %5.1f - 95%% %5.1f - 99%% %5.1f - 99.9%% %5.1f - max %6.1f  
+				Finished Latency ms: 50%% %5.1f - 95%% %5.1f - 99%% %5.1f - 99.9%% %5.1f - max %6.1f
+				Comsumed Latency ms: 50%% %5.1f - 95%% %5.1f - 99%% %5.1f - 99.9%% %5.1f - max %6.1f`,
 				msgRate, bytesRate*8/1024/1024,
 
 				receivedQ.Query(0.5)*1000,
