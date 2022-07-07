@@ -2,7 +2,6 @@ package internal
 
 import (
 	"fmt"
-	"sync"
 )
 
 type ConcurrencyLimiter interface {
@@ -12,8 +11,7 @@ type ConcurrencyLimiter interface {
 }
 
 type concurrencyLimiter struct {
-	ch     chan struct{}
-	chLock sync.RWMutex
+	ch chan struct{}
 }
 
 func NewConcurrencyLimiter(n int) ConcurrencyLimiter {
@@ -28,23 +26,22 @@ func NewConcurrencyLimiter(n int) ConcurrencyLimiter {
 }
 
 func (l *concurrencyLimiter) TryAcquire() bool {
-	l.chLock.Lock()
-	defer l.chLock.Unlock()
-	if len(l.ch) <= 0 {
+	select {
+	case <-l.ch:
+		return true
+	default:
 		return false
 	}
-	<-l.ch
-	return true
 }
 
 func (l *concurrencyLimiter) Acquire() {
-	l.chLock.Lock()
-	defer l.chLock.Unlock()
+	//l.chLock.Lock()
+	//defer l.chLock.Unlock()
 	<-l.ch
 }
 
 func (l *concurrencyLimiter) Release() {
-	l.chLock.Lock()
-	defer l.chLock.Unlock()
+	//l.chLock.Lock()
+	//defer l.chLock.Unlock()
 	l.ch <- struct{}{}
 }

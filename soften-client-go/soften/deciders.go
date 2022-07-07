@@ -8,17 +8,18 @@ import (
 	"github.com/shenqianjin/soften-client-go/soften/message"
 )
 
-type internalHandler interface {
-	Handle(msg pulsar.ConsumerMessage, checkStatus checker.CheckStatus) (success bool)
+type internalDecider interface {
+	Decide(msg pulsar.ConsumerMessage, checkStatus checker.CheckStatus) (success bool)
+	close()
 }
 
 // ------ general consume handlers ------
 
 type generalConsumeHandlers struct {
-	rerouteHandler internalHandler // 重路由处理器: Reroute
-	deadHandler    internalHandler // 状态处理器
-	doneHandler    internalHandler // 状态处理器
-	discardHandler internalHandler // 状态处理器
+	rerouteHandler internalDecider // 重路由处理器: Reroute
+	deadHandler    internalDecider // 状态处理器
+	doneHandler    internalDecider // 状态处理器
+	discardHandler internalDecider // 状态处理器
 }
 
 type generalConsumeHandlerOptions struct {
@@ -48,7 +49,7 @@ func newGeneralConsumeHandlers(client *client, conf generalConsumeHandlerOptions
 		if err != nil {
 			return nil, err
 		}
-		deadOptions := deadHandleOptions{topic: conf.Topic + suffix}
+		deadOptions := deadDecideOptions{topic: conf.Topic + suffix}
 		hd, err := newDeadHandler(client, deadOptions)
 		if err != nil {
 			return nil, err
@@ -65,14 +66,29 @@ func newGeneralConsumeHandlers(client *client, conf generalConsumeHandlerOptions
 	return handlers, nil
 }
 
+func (hds generalConsumeHandlers) Close() {
+	if hds.rerouteHandler != nil {
+		hds.rerouteHandler.close()
+	}
+	if hds.deadHandler != nil {
+		hds.deadHandler.close()
+	}
+	if hds.doneHandler != nil {
+		hds.doneHandler.close()
+	}
+	if hds.discardHandler != nil {
+		hds.discardHandler.close()
+	}
+}
+
 // ------ leveled consume handlers ------
 
 type leveledConsumeHandlers struct {
-	blockingHandler internalHandler // 状态处理器
-	pendingHandler  internalHandler // 状态处理器
-	retryingHandler internalHandler // 状态处理器
-	upgradeHandler  internalHandler // 状态处理器: 升级为NewReady
-	degradeHandler  internalHandler // 状态处理器: 升级为NewReady
+	blockingHandler internalDecider // 状态处理器
+	pendingHandler  internalDecider // 状态处理器
+	retryingHandler internalDecider // 状态处理器
+	upgradeHandler  internalDecider // 状态处理器: 升级为NewReady
+	degradeHandler  internalDecider // 状态处理器: 升级为NewReady
 }
 
 type leveledConsumeHandlerOptions struct {
@@ -93,7 +109,7 @@ type leveledConsumeHandlerOptions struct {
 
 // newLeveledConsumeHandlers create handlers based on different levels.
 // the topics[0], xxxEnable, xxxStatusPolicy and (topics[0] + Upgrade/DegradeLevel) parameters is used in this construction.
-func newLeveledConsumeHandlers(client *client, options leveledConsumeHandlerOptions, deadHandler internalHandler) (*leveledConsumeHandlers, error) {
+func newLeveledConsumeHandlers(client *client, options leveledConsumeHandlerOptions, deadHandler internalDecider) (*leveledConsumeHandlers, error) {
 	handlers := &leveledConsumeHandlers{
 		//multiStatusConsumeFacade: multiStatusConsumeFacade,
 		//options:   options,
@@ -153,4 +169,22 @@ func newLeveledConsumeHandlers(client *client, options leveledConsumeHandlerOpti
 		handlers.degradeHandler = hd
 	}
 	return handlers, nil
+}
+
+func (hds leveledConsumeHandlers) Close() {
+	if hds.blockingHandler != nil {
+		hds.blockingHandler.close()
+	}
+	if hds.pendingHandler != nil {
+		hds.pendingHandler.close()
+	}
+	if hds.retryingHandler != nil {
+		hds.retryingHandler.close()
+	}
+	if hds.upgradeHandler != nil {
+		hds.upgradeHandler.close()
+	}
+	if hds.degradeHandler != nil {
+		hds.degradeHandler.close()
+	}
 }

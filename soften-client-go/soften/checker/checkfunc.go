@@ -9,9 +9,9 @@ type BeforeCheckFunc func(pulsar.Message) CheckStatus
 type AfterCheckFunc func(pulsar.Message, error) CheckStatus
 
 var NilBeforeCheckFunc = func(pulsar.Message) CheckStatus {
-	return CheckStatusFailed
+	return CheckStatusRejected
 }
 
 var NilAfterCheckFunc = func(pulsar.Message, error) CheckStatus {
-	return CheckStatusFailed
+	return CheckStatusRejected
 }

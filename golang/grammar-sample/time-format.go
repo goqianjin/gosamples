@@ -2,10 +2,30 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"net/http"
 	"testing"
 	"time"
 )
+
+func main() {
+	TestTime1()
+}
+
+func TestTime1() {
+	var RFC3339TimeInSecondPattern = "20060102150405.999"
+	now := time.Now()
+	nowStr := now.Format(RFC3339TimeInSecondPattern)
+	if parsedNowStrAsTime, err := time.Parse(RFC3339TimeInSecondPattern, nowStr); err == nil {
+		fmt.Println(parsedNowStrAsTime)
+	}
+	nowUTCStr := now.UTC().Format(RFC3339TimeInSecondPattern)
+	if parsedNowUTCStrAsTime, err := time.Parse(RFC3339TimeInSecondPattern, nowUTCStr); err == nil {
+		fmt.Println(parsedNowUTCStrAsTime)
+		fmt.Println(math.Abs(float64(parsedNowUTCStrAsTime.Sub(now))) < float64(time.Second))
+	}
+
+}
 
 func TestTimeFormat(t *testing.T) {
 	loc, _ := time.LoadLocation("Asia/Shanghai")

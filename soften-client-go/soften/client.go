@@ -20,6 +20,9 @@ type Client interface {
 type client struct {
 	pulsar.Client
 	logger log.Logger
+
+	metricsProvider *internal.MetricsProvider
+	metrics         *internal.ClientMetrics
 }
 
 func NewClient(conf config.ClientConfig) (*client, error) {
@@ -39,8 +42,11 @@ func NewClient(conf config.ClientConfig) (*client, error) {
 	if err != nil {
 		return nil, err
 	}
-	cli := &client{Client: pulsarClient, logger: conf.Logger}
-	cli.logger.Infof("Soften client (url:%s) is ready", conf.URL)
+	metricsProvider := internal.NewMetricsProvider(2, nil)
+	cli := &client{Client: pulsarClient, logger: conf.Logger, metricsProvider: metricsProvider,
+		metrics: metricsProvider.GetClientMetrics(conf.URL)}
+	cli.metrics.ClientsOpened.Inc()
+	cli.logger.Infof("created soften client, url: %s", conf.URL)
 	return cli, nil
 }
 
@@ -67,4 +73,10 @@ func (c *client) CreateListener(conf config.ConsumerConfig) (*consumeListener, e
 	} else {
 		return consumer, err
 	}
+}
+
+func (c *client) Close() {
+	c.logger.Info("closed soften client")
+	c.Client.Close()
+	c.metrics.ClientsOpened.Dec()
 }

@@ -65,8 +65,8 @@ var (
 		ConsumeMaxTimes:   defaultConsumeMaxTimes,
 		BackoffDelays:     defaultStatusBackoffDelays,
 		BackoffPolicy:     nil,
-		ReentrantDelay:    120,
-		ReentrantMaxTimes: 15,
+		ReentrantDelay:    20,
+		ReentrantMaxTimes: 150,
 		CheckerMandatory:  false,
 	}
 

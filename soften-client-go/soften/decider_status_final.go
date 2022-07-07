@@ -27,19 +27,23 @@ func newFinalStatusHandler(logger log.Logger, status internal.MessageStatus) (*f
 	return &finalStatusHandler{logger: logger, status: status}, nil
 }
 
-func (h *finalStatusHandler) Handle(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) (success bool) {
+func (hd *finalStatusHandler) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) (success bool) {
 	if !cheStatus.IsPassed() {
 		return false
 	}
-	switch h.status {
+	switch hd.status {
 	case message.StatusDone:
 		msg.Consumer.Ack(msg.Message)
-		//h.logger.Warnf("Handle message: done")
+		//hd.logger.Warnf("Decide message: done")
 		return true
 	case message.StatusDiscard:
 		msg.Consumer.Ack(msg.Message)
-		//h.logger.Warnf("Handle message: discard")
+		//hd.logger.Warnf("Decide message: discard")
 		return true
 	}
 	return false
+}
+
+func (hd *finalStatusHandler) close() {
+
 }

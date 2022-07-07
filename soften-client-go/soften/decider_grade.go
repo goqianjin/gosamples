@@ -38,7 +38,7 @@ func newGradeHandler(client *client, tpc string, level internal.TopicLevel) (*gr
 	return hd, nil
 }
 
-func (hd *gradeHandler) Handle(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
+func (hd *gradeHandler) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
 	if !cheStatus.IsPassed() {
 		return false
 	}
@@ -55,7 +55,7 @@ func (hd *gradeHandler) Handle(msg pulsar.ConsumerMessage, cheStatus checker.Che
 		props[message.XPropertyOriginMessageID] = message.Parser.GetMessageId(msg)
 	}
 	if _, ok := props[message.XPropertyOriginPublishTime]; !ok {
-		props[message.XPropertyOriginPublishTime] = msg.PublishTime().Format(internal.RFC3339TimeInSecondPattern)
+		props[message.XPropertyOriginPublishTime] = msg.PublishTime().UTC().Format(internal.RFC3339TimeInSecondPattern)
 	}
 
 	producerMsg := pulsar.ProducerMessage{
@@ -70,4 +70,8 @@ func (hd *gradeHandler) Handle(msg pulsar.ConsumerMessage, cheStatus checker.Che
 		producerMsg: producerMsg,
 	}
 	return true
+}
+
+func (hd *gradeHandler) close() {
+
 }

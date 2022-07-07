@@ -30,16 +30,17 @@ func (l *flagLoaderImpl) loadConsumeFlags(flags *pflag.FlagSet, cArgs *consumeAr
 	flags.StringVarP(&cArgs.SubscriptionName, "subscription", "S", "sub", "Subscription name")
 	flags.IntVarP(&cArgs.ReceiverQueueSize, "receiver-queue-size", "R", 100000, "Receiver queue size")
 
-	flags.Int64Var(&cArgs.costAverageInMs, "cost-average-in-ms", 0, "consume cost average in milliseconds, use -1 to disable")
-	flags.Float64Var(&cArgs.costPositiveJitter, "cost-delay-jitter", 1, "cost delay jitter rate")
-	flags.Float64Var(&cArgs.costNegativeJitter, "cost-precede-jitter", 1, "cost precede jitter rate")
+	flags.Int64Var(&cArgs.costAverageInMs, "cost-average-in-ms", 100, "consume cost average in milliseconds, use -1 to disable")
+	flags.Float64Var(&cArgs.costPositiveJitter, "cost-delay-jitter", 0, "cost delay jitter rate")
+	flags.Float64Var(&cArgs.costNegativeJitter, "cost-precede-jitter", 0, "cost precede jitter rate")
 
+	flags.UintVar(&cArgs.Concurrency, "concurrency", 50, "consume concurrency")
 	var limitStr string
 	flags.StringVarP(&limitStr, "limit", "l", "10,10", "Consume limit. Set to 0 to go un-throttled, append with ',' for radicals Limits")
 	cArgs.Limits = l.parseUint64Array(limitStr)
-	var concurrencyStr string
-	flags.StringVarP(&concurrencyStr, "concurrency", "c", "3,3", "Consume concurrency. Set to 0 to go un-throttled, append with ',' for radicals Limits")
-	cArgs.RadicalConcurrences = l.parseUint64Array(concurrencyStr)
+	var concurrencesStr string
+	flags.StringVarP(&concurrencesStr, "radical-concurrences", "c", "3,3", "radical concurrences. Set to 0 to go un-throttled, append with ',' for radicals Limits")
+	cArgs.RadicalConcurrences = l.parseUint64Array(concurrencesStr)
 
 	flags.UintVar(&cArgs.handleDoneWeight, "done-weight", 100, "weight of handling message as done status")
 	flags.UintVar(&cArgs.handleRetryingWeight, "retrying-weight", 60, "weight of handling message as retrying status")
@@ -62,7 +63,7 @@ func (l *flagLoaderImpl) loadConsumeFlags(flags *pflag.FlagSet, cArgs *consumeAr
 
 func (l *flagLoaderImpl) loadProduceFlags(flags *pflag.FlagSet, pArgs *produceArgs) {
 	var rateStr string
-	flags.StringVarP(&rateStr, "rate", "r", "80,20", "Publish rate. Set to 0 to go un-throttled, append with ',' for radicals rates")
+	flags.StringVarP(&rateStr, "rate", "r", "20,80", "Publish rate. Set to 0 to go un-throttled, append with ',' for radicals rates")
 	pArgs.Rates = l.parseUint64Array(rateStr)
 	flags.IntVarP(&pArgs.BatchingTimeMillis, "batching-time", "b", 1, "Batching grouping time in millis")
 	flags.IntVarP(&pArgs.BatchingMaxSize, "batching-max-size", "", 128, "Max size of a batch (in KB)")

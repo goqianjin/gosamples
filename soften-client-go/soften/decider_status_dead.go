@@ -7,26 +7,26 @@ import (
 	"github.com/shenqianjin/soften-client-go/soften/message"
 )
 
-type deadHandleOptions struct {
+type deadDecideOptions struct {
 	topic string // default ${TOPIC}_RETRYING, 固定后缀，不允许定制
 	//enable bool   // 内部判断使用
 }
 
-type deadHandler struct {
+type deadDecider struct {
 	router  *reRouter
-	options deadHandleOptions
+	options deadDecideOptions
 }
 
-func newDeadHandler(client *client, options deadHandleOptions) (*deadHandler, error) {
+func newDeadHandler(client *client, options deadDecideOptions) (*deadDecider, error) {
 	rt, err := newReRouter(client.logger, client.Client, reRouterOptions{Topic: options.topic})
 	if err == nil {
 		return nil, err
 	}
-	statusRouter := &deadHandler{router: rt, options: options}
+	statusRouter := &deadDecider{router: rt, options: options}
 	return statusRouter, nil
 }
 
-func (sr *deadHandler) Handle(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
+func (hd *deadDecider) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
 	if !cheStatus.IsPassed() {
 		return false
 	}
@@ -47,7 +47,7 @@ func (sr *deadHandler) Handle(msg pulsar.ConsumerMessage, cheStatus checker.Chec
 		props[message.XPropertyOriginMessageID] = message.Parser.GetMessageId(msg)
 	}
 	if _, ok := props[message.XPropertyOriginPublishTime]; !ok {
-		props[message.XPropertyOriginPublishTime] = msg.PublishTime().Format(internal.RFC3339TimeInSecondPattern)
+		props[message.XPropertyOriginPublishTime] = msg.PublishTime().UTC().Format(internal.RFC3339TimeInSecondPattern)
 	}
 	producerMsg := pulsar.ProducerMessage{
 		Payload:     msg.Payload(),
@@ -56,9 +56,13 @@ func (sr *deadHandler) Handle(msg pulsar.ConsumerMessage, cheStatus checker.Chec
 		Properties:  props,
 		EventTime:   msg.EventTime(),
 	}
-	sr.router.Chan() <- &RerouteMessage{
+	hd.router.Chan() <- &RerouteMessage{
 		consumerMsg: msg,
 		producerMsg: producerMsg,
 	}
 	return true
+}
+
+func (hd *deadDecider) close() {
+
 }

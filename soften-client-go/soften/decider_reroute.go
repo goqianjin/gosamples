@@ -26,7 +26,7 @@ func newRerouteHandler(client *client, policy *config.ReroutePolicy) (*rerouteHa
 	return rtrHandler, nil
 }
 
-func (hd *rerouteHandler) Handle(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
+func (hd *rerouteHandler) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
 	if !cheStatus.IsPassed() || cheStatus.GetRerouteTopic() == "" {
 		return false
 	}
@@ -54,7 +54,7 @@ func (hd *rerouteHandler) Handle(msg pulsar.ConsumerMessage, cheStatus checker.C
 		props[message.XPropertyOriginMessageID] = message.Parser.GetMessageId(msg)
 	}
 	if _, ok := props[message.XPropertyOriginPublishTime]; !ok {
-		props[message.XPropertyOriginPublishTime] = msg.PublishTime().Format(internal.RFC3339TimeInSecondPattern)
+		props[message.XPropertyOriginPublishTime] = msg.PublishTime().UTC().Format(internal.RFC3339TimeInSecondPattern)
 	}
 
 	producerMsg := pulsar.ProducerMessage{
@@ -92,4 +92,8 @@ func (hd *rerouteHandler) internalSafeGetReRouterInAsync(topic string) (*reRoute
 		hd.routers[topic] = newRtr
 		return rtr, nil
 	}
+}
+
+func (hd *rerouteHandler) close() {
+
 }

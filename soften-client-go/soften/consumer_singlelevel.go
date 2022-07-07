@@ -10,7 +10,7 @@ import (
 	"github.com/shenqianjin/soften-client-go/soften/message"
 )
 
-type multiStatusConsumer struct {
+type leveledConsumer struct {
 	logger           log.Logger
 	messageCh        chan ConsumerMessage // channel used to deliver message to application
 	level            internal.TopicLevel
@@ -21,44 +21,44 @@ type multiStatusConsumer struct {
 	retryingConsumer *statusConsumer
 }
 
-func newMultiStatusConsumer(consumerLogger log.Logger, client *client, level internal.TopicLevel, conf *config.ConsumerConfig,
-	messageCh chan ConsumerMessage, handlers *leveledConsumeHandlers) (*multiStatusConsumer, error) {
-	cs := &multiStatusConsumer{logger: consumerLogger.SubLogger(log.Fields{"level": level}),
+func newSingleLeveledConsumer(parentLogger log.Logger, client *client, level internal.TopicLevel, conf *config.ConsumerConfig,
+	messageCh chan ConsumerMessage, handlers *leveledConsumeHandlers) (*leveledConsumer, error) {
+	cs := &leveledConsumer{logger: parentLogger.SubLogger(log.Fields{"level": level}),
 		level: level, messageCh: messageCh, statusStrategy: conf.BalanceStrategy}
-	// create status multiStatusConsumer
+	// create status leveledConsumer
 	if mainConsumer, err := cs.internalSubscribe(client, conf, message.StatusReady); err != nil {
 		return nil, err
 	} else {
-		cs.mainConsumer = newStatusConsumer(mainConsumer, message.StatusReady, conf.Ready, nil)
+		cs.mainConsumer = newStatusConsumer(cs.logger, mainConsumer, message.StatusReady, conf.Ready, nil)
 	}
 	if conf.PendingEnable {
 		if pendingConsumer, err := cs.internalSubscribe(client, conf, message.StatusPending); err != nil {
 			return nil, err
 		} else {
-			cs.pendingConsumer = newStatusConsumer(pendingConsumer, message.StatusPending, conf.Pending, handlers.pendingHandler)
+			cs.pendingConsumer = newStatusConsumer(cs.logger, pendingConsumer, message.StatusPending, conf.Pending, handlers.pendingHandler)
 		}
 	}
 	if conf.BlockingEnable {
 		if blockingConsumer, err := cs.internalSubscribe(client, conf, message.StatusBlocking); err != nil {
 			return nil, err
 		} else {
-			cs.blockingConsumer = newStatusConsumer(blockingConsumer, message.StatusBlocking, conf.Blocking, handlers.blockingHandler)
+			cs.blockingConsumer = newStatusConsumer(cs.logger, blockingConsumer, message.StatusBlocking, conf.Blocking, handlers.blockingHandler)
 		}
 	}
 	if conf.RetryingEnable {
 		if retryingConsumer, err := cs.internalSubscribe(client, conf, message.StatusRetrying); err != nil {
 			return nil, err
 		} else {
-			cs.retryingConsumer = newStatusConsumer(retryingConsumer, message.StatusRetrying, conf.Retrying, handlers.retryingHandler)
+			cs.retryingConsumer = newStatusConsumer(cs.logger, retryingConsumer, message.StatusRetrying, conf.Retrying, handlers.retryingHandler)
 		}
 	}
-	// start to listen message from all status multiStatusConsumer
+	// start to listen message from all status leveledConsumer
 	go cs.retrieveStatusMessages()
-	cs.logger.Infof("complete subscribing multi-status consumer on level: %v", level)
+	cs.logger.Info("subscribed leveled consumer")
 	return cs, nil
 }
 
-func (msc *multiStatusConsumer) retrieveStatusMessages() {
+func (msc *leveledConsumer) retrieveStatusMessages() {
 	chs := make([]<-chan ConsumerMessage, 1)
 	weights := make([]uint, 1)
 	chs[0] = msc.mainConsumer.StatusChan()
@@ -85,6 +85,7 @@ func (msc *multiStatusConsumer) retrieveStatusMessages() {
 			msc.logger.Warnf("status chan closed")
 			break
 		}
+
 		// 获取到消息
 		if msg.Message != nil && msg.Consumer != nil {
 			//fmt.Printf("received msg  msgId: %v -- content: '%s'\n", msg.ID(), string(msg.Payload()))
@@ -97,13 +98,12 @@ func (msc *multiStatusConsumer) retrieveStatusMessages() {
 }
 
 // Chan returns a channel to consume messages from
-func (msc *multiStatusConsumer) Chan() <-chan ConsumerMessage {
+func (msc *leveledConsumer) Chan() <-chan ConsumerMessage {
 	return msc.messageCh
 }
 
-func (msc *multiStatusConsumer) Close() {
+func (msc *leveledConsumer) Close() {
 	msc.mainConsumer.Close()
-	close(msc.messageCh)
 	if msc.blockingConsumer != nil {
 		msc.blockingConsumer.Close()
 	}
@@ -113,9 +113,11 @@ func (msc *multiStatusConsumer) Close() {
 	if msc.retryingConsumer != nil {
 		msc.retryingConsumer.Close()
 	}
+	close(msc.messageCh)
+	msc.logger.Info("closed leveled consumer")
 }
 
-func (msc *multiStatusConsumer) internalSubscribe(cli *client, conf *config.ConsumerConfig, status internal.MessageStatus) (pulsar.Consumer, error) {
+func (msc *leveledConsumer) internalSubscribe(cli *client, conf *config.ConsumerConfig, status internal.MessageStatus) (pulsar.Consumer, error) {
 	suffix, err := message.TopicSuffixOf(status)
 	if err != nil {
 		return nil, err

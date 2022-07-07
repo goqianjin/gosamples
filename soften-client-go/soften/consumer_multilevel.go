@@ -3,40 +3,39 @@ package soften
 import (
 	"fmt"
 
+	"github.com/apache/pulsar-client-go/pulsar/log"
 	"github.com/shenqianjin/soften-client-go/soften/config"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
-
-	"github.com/apache/pulsar-client-go/pulsar/log"
 )
 
-type multiLevelConsumer struct {
+type multiLeveledConsumer struct {
 	logger         log.Logger
 	messageCh      chan ConsumerMessage                        // channel used to deliver message to application
 	levelStrategy  internal.BalanceStrategy                    // 消费策略
 	levelPolicies  map[internal.TopicLevel]*config.LevelPolicy // 级别消费策略
-	levelConsumers map[internal.TopicLevel]*multiStatusConsumer
+	levelConsumers map[internal.TopicLevel]*leveledConsumer
 }
 
-func newMultiLevelConsumer(consumerLogger log.Logger, client *client, conf *config.ConsumerConfig, messageCh chan ConsumerMessage, levelHandlers map[internal.TopicLevel]*leveledConsumeHandlers) (*multiLevelConsumer, error) {
-	consumer := &multiLevelConsumer{
-		logger:        consumerLogger,
+func newMultiLeveledConsumer(parentLogger log.Logger, client *client, conf *config.ConsumerConfig, messageCh chan ConsumerMessage, levelHandlers map[internal.TopicLevel]*leveledConsumeHandlers) (*multiLeveledConsumer, error) {
+	consumer := &multiLeveledConsumer{
+		logger:        parentLogger.SubLogger(log.Fields{"level": internal.TopicLevelParser.FormatList(conf.Levels)}),
 		levelStrategy: conf.LevelBalanceStrategy,
 		messageCh:     messageCh,
 	}
-	consumer.levelConsumers = make(map[internal.TopicLevel]*multiStatusConsumer, len(conf.Levels))
+	consumer.levelConsumers = make(map[internal.TopicLevel]*leveledConsumer, len(conf.Levels))
 	for _, level := range conf.Levels {
-		levelConsumer, err := newMultiStatusConsumer(consumerLogger, client, level, conf, make(chan ConsumerMessage, 10), levelHandlers[level])
+		levelConsumer, err := newSingleLeveledConsumer(parentLogger, client, level, conf, make(chan ConsumerMessage, 10), levelHandlers[level])
 		if err != nil {
 			return nil, fmt.Errorf("failed to new multi-status comsumer -> %v", err)
 		}
 		consumer.levelConsumers[level] = levelConsumer
 	}
-	// start to listen message from all status multiStatusConsumer
+	// start to listen message from all status leveledConsumer
 	go consumer.retrieveStatusMessages()
 	return consumer, nil
 }
 
-func (c *multiLevelConsumer) retrieveStatusMessages() {
+func (c *multiLeveledConsumer) retrieveStatusMessages() {
 	chs := make([]<-chan ConsumerMessage, len(c.levelConsumers))
 	weights := make([]uint, len(c.levelConsumers))
 	for level, consumer := range c.levelConsumers {

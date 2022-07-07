@@ -7,14 +7,14 @@ import (
 // ------ check type ------
 
 const (
-	CheckTypeDiscard  = internal.CheckType("Discard")
+	/*CheckTypeDiscard  = internal.CheckType("Discard")
 	CheckTypePending  = internal.CheckType("Pending")
 	CheckTypeBlocking = internal.CheckType("Blocking")
 	CheckTypeRetrying = internal.CheckType("Retrying")
 	CheckTypeDead     = internal.CheckType("Dead")
 	CheckTypeUpgrade  = internal.CheckType("Upgrade")
 	CheckTypeDegrade  = internal.CheckType("Degrade")
-	CheckTypeReroute  = internal.CheckType("Reroute")
+	CheckTypeReroute  = internal.CheckType("Reroute")*/
 
 	CheckTypePreDiscard  = internal.CheckType("PreDiscard")
 	CheckTypePrePending  = internal.CheckType("PrePending")

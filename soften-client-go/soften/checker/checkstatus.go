@@ -26,13 +26,15 @@ func (s *checkStatus) WithPassed(passed bool) *checkStatus {
 }
 
 func (s *checkStatus) WithHandledDefer(handledDefer func()) *checkStatus {
-	s.handledDefer = handledDefer
-	return s
+	r := &checkStatus{passed: s.passed, handledDefer: s.handledDefer, rerouteTopic: s.rerouteTopic}
+	r.handledDefer = handledDefer
+	return r
 }
 
 func (s *checkStatus) WithRerouteTopic(topic string) *checkStatus {
-	s.rerouteTopic = topic
-	return s
+	r := &checkStatus{passed: s.passed, handledDefer: s.handledDefer, rerouteTopic: s.rerouteTopic}
+	r.rerouteTopic = topic
+	return r
 }
 
 func (s *checkStatus) IsPassed() bool {
@@ -50,7 +52,7 @@ func (s *checkStatus) GetRerouteTopic() string {
 // ------ check status enums ------
 
 var (
-	CheckStatusPassed  = &checkStatus{passed: true}
-	CheckStatusFailed  = &checkStatus{passed: false}
-	CheckStatusDefault = &checkStatus{} // default is equal to CheckStatusFailed
+	CheckStatusPassed   = &checkStatus{passed: true}
+	CheckStatusRejected = &checkStatus{passed: false}
+	CheckStatusDefault  = &checkStatus{} // default is equal to CheckStatusRejected
 )

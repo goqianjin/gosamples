@@ -1,15 +1,17 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"time"
 
+	"go.uber.org/ratelimit"
+
 	"github.com/shenqianjin/soften-client-go/soften/config"
 
 	"github.com/apache/pulsar-client-go/pulsar"
-	"github.com/beefsack/go-rate"
 	"github.com/bmizerany/perks/quantile"
 	log "github.com/sirupsen/logrus"
 )
@@ -39,8 +41,6 @@ func (p *producer) perfProduce(stopCh <-chan struct{}) {
 	log.Info("Client config: ", string(b))
 	b, _ = json.MarshalIndent(p.produceArgs, "", "  ")
 	log.Info("Producer config: ", string(b))
-	log.Info("asdfasdf111")
-	log.Infof("asdfasdf")
 	// create client
 	client, err := newClient(p.clientArgs)
 	if err != nil {
@@ -59,7 +59,7 @@ func (p *producer) perfProduce(stopCh <-chan struct{}) {
 	}
 	defer realProducer.Close()
 
-	ch := make(chan float64)
+	ch := make(chan *produceStat)
 	// start monitoring: async
 	go p.stats(stopCh, ch)
 	// start perfProduce: sync to hang
@@ -78,12 +78,16 @@ func (p *producer) perfProduce(stopCh <-chan struct{}) {
 	p.internalProduce(realProducer, normalRate, "Radical-0", stopCh, ch)
 }
 
-func (p *producer) internalProduce(realProducer pulsar.Producer, r uint64, radical string, stopCh <-chan struct{}, ch chan<- float64) {
+func (p *producer) internalProduce(realProducer pulsar.Producer, r uint64, radical string, stopCh <-chan struct{}, ch chan<- *produceStat) {
 	ctx := context.Background()
 	payload := make([]byte, p.produceArgs.MessageSize)
-	var rateLimiter *rate.RateLimiter
+	//var rateLimiter *rate.RateLimiter
+	var rateLimiter ratelimit.Limiter
+
 	if r > 0 {
-		rateLimiter = rate.New(int(r), time.Second)
+		//rateLimiter = rate.New(int(r), time.Second)
+		//rateLimiter = rate.New(int(r)/10, 100*time.Millisecond)
+		rateLimiter = ratelimit.New(int(r), ratelimit.Per(time.Second))
 	}
 	/*var radicalChoicePolicy internal.ChoicePolicy
 	if p.produceArgs.RadicalRate > 0 {
@@ -98,7 +102,8 @@ func (p *producer) internalProduce(realProducer pulsar.Producer, r uint64, radic
 		}
 
 		if rateLimiter != nil {
-			rateLimiter.Wait()
+			//rateLimiter.Wait()
+			rateLimiter.Take()
 		}
 
 		msg := &pulsar.ProducerMessage{
@@ -121,17 +126,22 @@ func (p *producer) internalProduce(realProducer pulsar.Producer, r uint64, radic
 			}
 
 			latency := time.Since(start).Seconds()
-			ch <- latency
+			stat := &produceStat{latency: latency}
+			if radicalKey, ok := msg.Properties["Radical"]; ok {
+				stat.radicalKey = radicalKey
+			}
+			ch <- stat
 		})
 	}
 }
 
-func (p *producer) stats(stop <-chan struct{}, latencyCh <-chan float64) {
+func (p *producer) stats(stop <-chan struct{}, statCh <-chan *produceStat) {
 	// Print stats of the publish rate and latencies
 	tick := time.NewTicker(10 * time.Second)
 	defer tick.Stop()
 	q := quantile.NewTargeted(0.50, 0.95, 0.99, 0.999, 1.0)
 	messagesPublished := 0
+	radicalMsgPublished := make(map[string]int64, len(p.produceArgs.Rates))
 
 	for {
 		select {
@@ -139,7 +149,9 @@ func (p *producer) stats(stop <-chan struct{}, latencyCh <-chan float64) {
 			return
 		case <-tick.C:
 			messageRate := float64(messagesPublished) / float64(10)
-			log.Infof(`>>>>>>>>>>
+
+			statB := &bytes.Buffer{}
+			fmt.Fprintf(statB, `>>>>>>>>>>
 		Stats - Publish rate: %6.1f msg/s - %6.1f Mbps - 
 				Finished Latency ms: 50%% %5.1f - 95%% %5.1f - 99%% %5.1f - 99.9%% %5.1f - max %6.1f`,
 				messageRate,
@@ -150,12 +162,27 @@ func (p *producer) stats(stop <-chan struct{}, latencyCh <-chan float64) {
 				q.Query(0.999)*1000,
 				q.Query(1.0)*1000,
 			)
-
+			if len(radicalMsgPublished) > 0 {
+				fmt.Fprintf(statB, `
+			Detail >> `)
+			}
+			for key, v := range radicalMsgPublished {
+				fmt.Fprintf(statB, "%s rate: %6.1f msg/s - ", key, float64(v)/float64(10))
+				radicalMsgPublished[key] = 0
+			}
+			log.Info(statB.String())
 			q.Reset()
 			messagesPublished = 0
-		case latency := <-latencyCh:
+		case stat := <-statCh:
 			messagesPublished++
-			q.Insert(latency)
+			radicalMsgPublished[stat.radicalKey]++
+			q.Insert(stat.latency)
 		}
 	}
+}
+
+type produceStat struct {
+	latency float64
+
+	radicalKey string
 }

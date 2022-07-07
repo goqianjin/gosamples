@@ -3,6 +3,7 @@ package soften
 import (
 	"context"
 	"sync"
+	"time"
 
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/apache/pulsar-client-go/pulsar/log"
@@ -19,6 +20,7 @@ type producer struct {
 	checkers    []internal.RouteChecker
 	routers     map[string]*router
 	routersLock sync.RWMutex
+	metrics     *internal.ProducerMetrics
 }
 
 func newProducer(client *client, conf *config.ProducerConfig, checkers ...internal.RouteChecker) (*producer, error) {
@@ -29,22 +31,29 @@ func newProducer(client *client, conf *config.ProducerConfig, checkers ...intern
 	if err != nil {
 		return nil, err
 	}
-	producer := &producer{
+	p := &producer{
 		Producer:    pulsarProducer,
 		client:      client,
 		logger:      client.logger.SubLogger(log.Fields{"topic": options.Topic}),
 		routeEnable: conf.RouteEnable,
 		routePolicy: conf.Route,
 		checkers:    checkers,
+		routers:     map[string]*router{},
+		metrics:     client.metricsProvider.GetProducerMetrics(conf.Topic),
 	}
-	producer.logger.Infof("Soften producer (topic:%s) is ready", conf.Topic)
-	return producer, nil
+	p.logger.Infof("created soften producer")
+	p.metrics.ProducersOpened.Inc()
+	return p, nil
 }
 
 // Send aim to send message synchronously
 func (p *producer) Send(ctx context.Context, msg *pulsar.ProducerMessage) (pulsar.MessageID, error) {
 	if !p.routeEnable {
-		return p.Producer.Send(ctx, msg)
+		start := time.Now()
+		msgId, err := p.Producer.Send(ctx, msg)
+		p.metrics.PublishLatency.Observe(time.Now().Sub(start).Seconds())
+		p.metrics.MessagesPublished.Inc()
+		return msgId, err
 	}
 	for _, chk := range p.checkers {
 		routeTopic := chk(msg)
@@ -75,14 +84,25 @@ func (p *producer) Send(ctx context.Context, msg *pulsar.ProducerMessage) (pulsa
 			return mid, err2
 		}
 	}
-	return p.Producer.Send(ctx, msg)
+
+	start := time.Now()
+	msgId, err := p.Producer.Send(ctx, msg)
+	p.metrics.PublishLatency.Observe(time.Now().Sub(start).Seconds())
+	p.metrics.MessagesPublished.Inc()
+	return msgId, err
 }
 
 // SendAsync send message asynchronously
 func (p *producer) SendAsync(ctx context.Context, msg *pulsar.ProducerMessage,
 	callback func(pulsar.MessageID, *pulsar.ProducerMessage, error)) {
+	start := time.Now()
+	callbackNew := func(msgID pulsar.MessageID, msg *pulsar.ProducerMessage, err error) {
+		p.metrics.PublishLatency.Observe(time.Now().Sub(start).Seconds())
+		p.metrics.MessagesPublished.Inc()
+		callback(msgID, msg, err)
+	}
 	if !p.routeEnable {
-		p.Producer.SendAsync(ctx, msg, callback)
+		p.Producer.SendAsync(ctx, msg, callbackNew)
 		return
 	}
 	for _, chk := range p.checkers {
@@ -105,9 +125,13 @@ func (p *producer) SendAsync(ctx context.Context, msg *pulsar.ProducerMessage,
 				continue
 			}
 		}
+		// route record metrics individually
 		rtr.SendAsync(ctx, msg, callback)
+		//
+		return
 	}
-	p.Producer.SendAsync(ctx, msg, callback)
+	p.Producer.SendAsync(ctx, msg, callbackNew)
+	return
 }
 
 func (p *producer) internalSafeGetRouterInAsync(topic string) (*router, error) {
@@ -131,4 +155,10 @@ func (p *producer) internalSafeGetRouterInAsync(topic string) (*router, error) {
 		p.routers[topic] = newRtr
 		return rtr, nil
 	}
+}
+
+func (p *producer) Close() {
+	p.Producer.Close()
+	p.logger.Info("closed soften producer")
+	p.metrics.ProducersOpened.Dec()
 }
