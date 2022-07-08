@@ -12,13 +12,14 @@
         <th>备注</th>
     </tr>
     <!-- body -->
-    <!-- send cases -->
+    <!-- produce cases -->
     <tr align="left">
-        <th rowspan="2">Send</th>
+        <th rowspan="3">Produce</th>
         <th >send 1msg</th>
         <th>单个消息</th>
         <th>create topic; <br> send 1 msg; <br> delete topic;</th>
     </tr>
+    <tr align="left"><th>send 1msg (Ready) asynchronously </th><th></th><th></th></tr>
     <tr align="left"><th>send 1msg (Ready) + send 1msg (route)</th><th></th><th></th></tr>
     <!-- listen cases -->
     <tr align="left">
