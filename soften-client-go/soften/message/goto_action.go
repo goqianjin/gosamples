@@ -17,7 +17,7 @@ const (
 	GotoUpgrade  = internal.MessageGoto("Upgrade")
 	GotoDegrade  = internal.MessageGoto("Degrade")
 	// Reroute 只能通过checkpoint实现，不能在 HandleResult 中显示指定为 GotoAction
-	// MessageGotoReroute  = MessageStatus("Reroute")
+	//GotoReroute = internal.MessageGoto("Reroute")
 )
 
 func GotoActionOf(action string) (internal.MessageGoto, error) {

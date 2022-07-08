@@ -52,7 +52,6 @@ func (p *producer) Send(ctx context.Context, msg *pulsar.ProducerMessage) (pulsa
 		start := time.Now()
 		msgId, err := p.Producer.Send(ctx, msg)
 		p.metrics.PublishLatency.Observe(time.Now().Sub(start).Seconds())
-		p.metrics.MessagesPublished.Inc()
 		return msgId, err
 	}
 	for _, chk := range p.checkers {
@@ -88,7 +87,6 @@ func (p *producer) Send(ctx context.Context, msg *pulsar.ProducerMessage) (pulsa
 	start := time.Now()
 	msgId, err := p.Producer.Send(ctx, msg)
 	p.metrics.PublishLatency.Observe(time.Now().Sub(start).Seconds())
-	p.metrics.MessagesPublished.Inc()
 	return msgId, err
 }
 
@@ -98,7 +96,6 @@ func (p *producer) SendAsync(ctx context.Context, msg *pulsar.ProducerMessage,
 	start := time.Now()
 	callbackNew := func(msgID pulsar.MessageID, msg *pulsar.ProducerMessage, err error) {
 		p.metrics.PublishLatency.Observe(time.Now().Sub(start).Seconds())
-		p.metrics.MessagesPublished.Inc()
 		callback(msgID, msg, err)
 	}
 	if !p.routeEnable {

@@ -18,24 +18,27 @@ type rerouteHandler struct {
 	client      pulsar.Client
 	logger      log.Logger
 	policy      *config.ReroutePolicy
+	metrics     *internal.ListenerDecideGotoMetrics
 }
 
-func newRerouteHandler(client *client, policy *config.ReroutePolicy) (*rerouteHandler, error) {
+func newRerouteHandler(client *client, listener *consumeListener, policy *config.ReroutePolicy) (*rerouteHandler, error) {
 	routers := make(map[string]*reRouter)
+	metrics := client.metricsProvider.GetListenerDecideGotoMetrics(listener.logTopics, listener.logLevels, internalGotoReroute)
 	rtrHandler := &rerouteHandler{logger: client.logger, routers: routers, policy: policy}
+	metrics.DecidersOpened.Inc()
 	return rtrHandler, nil
 }
 
-func (hd *rerouteHandler) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
+func (d *rerouteHandler) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
 	if !cheStatus.IsPassed() || cheStatus.GetRerouteTopic() == "" {
 		return false
 	}
-	rtr, err := hd.internalSafeGetReRouterInAsync(cheStatus.GetRerouteTopic())
+	rtr, err := d.internalSafeGetReRouterInAsync(cheStatus.GetRerouteTopic())
 	if err != nil {
 		return false
 	}
 	if !rtr.ready {
-		if hd.policy.ConnectInSyncEnable {
+		if d.policy.ConnectInSyncEnable {
 			<-rtr.readyCh
 		} else {
 			return false
@@ -71,29 +74,29 @@ func (hd *rerouteHandler) Decide(msg pulsar.ConsumerMessage, cheStatus checker.C
 	return true
 }
 
-func (hd *rerouteHandler) internalSafeGetReRouterInAsync(topic string) (*reRouter, error) {
-	hd.routersLock.RLock()
-	rtr, ok := hd.routers[topic]
-	hd.routersLock.RUnlock()
+func (d *rerouteHandler) internalSafeGetReRouterInAsync(topic string) (*reRouter, error) {
+	d.routersLock.RLock()
+	rtr, ok := d.routers[topic]
+	d.routersLock.RUnlock()
 	if ok {
 		return rtr, nil
 	}
 	rtOption := reRouterOptions{Topic: topic, connectInSyncEnable: false}
-	hd.routersLock.Lock()
-	defer hd.routersLock.Unlock()
-	rtr, ok = hd.routers[topic]
+	d.routersLock.Lock()
+	defer d.routersLock.Unlock()
+	rtr, ok = d.routers[topic]
 	if ok {
 		return rtr, nil
 	}
-	if newRtr, err := newReRouter(hd.logger, hd.client, rtOption); err != nil {
+	if newRtr, err := newReRouter(d.logger, d.client, rtOption); err != nil {
 		return nil, err
 	} else {
 		rtr = newRtr
-		hd.routers[topic] = newRtr
+		d.routers[topic] = newRtr
 		return rtr, nil
 	}
 }
 
-func (hd *rerouteHandler) close() {
-
+func (d *rerouteHandler) close() {
+	d.metrics.DecidersOpened.Dec()
 }

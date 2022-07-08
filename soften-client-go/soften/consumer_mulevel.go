@@ -16,7 +16,7 @@ type multiLeveledConsumer struct {
 	levelConsumers map[internal.TopicLevel]*leveledConsumer
 }
 
-func newMultiLeveledConsumer(parentLogger log.Logger, client *client, conf *config.ConsumerConfig, messageCh chan ConsumerMessage, levelHandlers map[internal.TopicLevel]*leveledConsumeHandlers) (*multiLeveledConsumer, error) {
+func newMultiLeveledConsumer(parentLogger log.Logger, client *client, conf *config.ConsumerConfig, messageCh chan ConsumerMessage, levelHandlers map[internal.TopicLevel]*leveledConsumeDeciders) (*multiLeveledConsumer, error) {
 	consumer := &multiLeveledConsumer{
 		logger:        parentLogger.SubLogger(log.Fields{"level": internal.TopicLevelParser.FormatList(conf.Levels)}),
 		levelStrategy: conf.LevelBalanceStrategy,

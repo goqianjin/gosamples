@@ -35,10 +35,6 @@ func newStatusConsumer(parentLogger log.Logger, pulsarConsumer pulsar.Consumer, 
 }
 
 func (sc *statusConsumer) start() {
-	if sc.status != message.StatusReady {
-		sc.logger.Info("------start---- %v", sc.status)
-	}
-
 	for {
 		// block to read pulsar chan
 		msg := <-sc.Consumer.Chan()

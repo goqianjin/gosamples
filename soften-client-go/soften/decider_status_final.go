@@ -12,38 +12,43 @@ import (
 	"github.com/shenqianjin/soften-client-go/soften/message"
 )
 
-type finalStatusHandler struct {
-	logger log.Logger
-	status internal.MessageStatus
+type finalStatusDecider struct {
+	logger  log.Logger
+	msgGoto internal.MessageGoto
+	metrics *internal.ListenerDecideGotoMetrics
 }
 
-func newFinalStatusHandler(logger log.Logger, status internal.MessageStatus) (*finalStatusHandler, error) {
-	if status == "" {
+func newFinalStatusHandler(cli *client, listener *consumeListener, msgGoto internal.MessageGoto) (*finalStatusDecider, error) {
+	if msgGoto == "" {
 		return nil, errors.New("final message status cannot be empty")
 	}
-	if status != message.StatusDone && status != message.StatusDiscard {
-		return nil, errors.New(fmt.Sprintf("%s is not a final message status", status))
+	if msgGoto != message.GotoDone && msgGoto != message.GotoDiscard {
+		return nil, errors.New(fmt.Sprintf("%s is not a final message goto action", msgGoto))
 	}
-	return &finalStatusHandler{logger: logger, status: status}, nil
+	metrics := cli.metricsProvider.GetListenerDecideGotoMetrics(listener.logTopics, listener.logLevels, msgGoto)
+	decider := &finalStatusDecider{logger: cli.logger, msgGoto: msgGoto, metrics: metrics}
+	metrics.DecidersOpened.Inc()
+	return decider, nil
+
 }
 
-func (hd *finalStatusHandler) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) (success bool) {
+func (d *finalStatusDecider) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) (success bool) {
 	if !cheStatus.IsPassed() {
 		return false
 	}
-	switch hd.status {
-	case message.StatusDone:
+	switch d.msgGoto {
+	case message.GotoDone:
 		msg.Consumer.Ack(msg.Message)
-		//hd.logger.Warnf("Decide message: done")
+		//d.logger.Warnf("Decide message: done")
 		return true
-	case message.StatusDiscard:
+	case message.GotoDiscard:
 		msg.Consumer.Ack(msg.Message)
-		//hd.logger.Warnf("Decide message: discard")
+		//d.logger.Warnf("Decide message: discard")
 		return true
 	}
 	return false
 }
 
-func (hd *finalStatusHandler) close() {
-
+func (d *finalStatusDecider) close() {
+	d.metrics.DecidersOpened.Dec()
 }

@@ -12,29 +12,39 @@ import (
 	"github.com/shenqianjin/soften-client-go/soften/topic"
 )
 
+type gradeOptions struct {
+	topic       string
+	grade2Level internal.TopicLevel
+	level       internal.TopicLevel
+	msgGoto     internal.MessageGoto
+}
+
 type gradeHandler struct {
 	router *reRouter
 	logger log.Logger
-	level  internal.TopicLevel
+	//level   internal.TopicLevel
+	metrics *internal.ListenerDecideGotoMetrics
 }
 
-func newGradeHandler(client *client, tpc string, level internal.TopicLevel) (*gradeHandler, error) {
-	if tpc == "" {
+func newGradeHandler(client *client, listener *consumeListener, options gradeOptions) (*gradeHandler, error) {
+	if options.topic == "" {
 		return nil, errors.New("topic cannot be blank")
 	}
-	if level == "" {
+	if options.grade2Level == "" {
 		return nil, errors.New("topic level is empty")
 	}
-	suffix, err := topic.NameSuffixOf(level)
+	suffix, err := topic.NameSuffixOf(options.grade2Level)
 	if err != nil {
 		return nil, err
 	}
-	routerOption := reRouterOptions{Topic: tpc + suffix}
+	routerOption := reRouterOptions{Topic: options.topic + suffix}
 	rt, err := newReRouter(client.logger, client.Client, routerOption)
 	if err != nil {
 		return nil, err
 	}
-	hd := &gradeHandler{router: rt, logger: client.logger, level: level}
+	metrics := client.metricsProvider.GetListenerLeveledDecideGotoMetrics(listener.logTopics, listener.logLevels, options.level, options.msgGoto)
+	hd := &gradeHandler{router: rt, logger: client.logger, metrics: metrics}
+	metrics.DecidersOpened.Inc()
 	return hd, nil
 }
 

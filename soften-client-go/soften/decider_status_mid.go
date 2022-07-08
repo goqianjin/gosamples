@@ -2,7 +2,6 @@ package soften
 
 import (
 	"strconv"
-	"sync/atomic"
 	"time"
 
 	"github.com/shenqianjin/soften-client-go/soften/checker"
@@ -17,7 +16,9 @@ import (
 type statusHandleOptions struct {
 	topic       string                 // default ${TOPIC}_RETRYING, 固定后缀，不允许定制
 	status      internal.MessageStatus // MessageStatus
+	msgGoto     internal.MessageGoto   // MessageStatus
 	deadHandler internalDecider        //
+	level       internal.TopicLevel
 	//levels      []TopicLevel    //
 	//enable      bool                   // 内部判断使用
 }
@@ -26,16 +27,17 @@ type statusHandler struct {
 	router  *reRouter
 	policy  *config.StatusPolicy
 	options statusHandleOptions
-
-	count atomic.Value
+	metrics *internal.ListenerDecideGotoMetrics
 }
 
-func newStatusHandler(client *client, policy *config.StatusPolicy, options statusHandleOptions) (*statusHandler, error) {
+func newStatusHandler(client *client, listener *consumeListener, policy *config.StatusPolicy, options statusHandleOptions) (*statusHandler, error) {
 	rt, err := newReRouter(client.logger, client.Client, reRouterOptions{Topic: options.topic})
 	if err != nil {
 		return nil, err
 	}
+	metrics := client.metricsProvider.GetListenerLeveledDecideGotoMetrics(listener.logTopics, listener.logLevels, options.level, options.msgGoto)
 	statusRouter := &statusHandler{router: rt, policy: policy, options: options}
+	metrics.DecidersOpened.Inc()
 	return statusRouter, nil
 }
 
@@ -161,5 +163,5 @@ func (hd *statusHandler) tryDeadInternal(msg pulsar.ConsumerMessage) bool {
 }
 
 func (hd *statusHandler) close() {
-
+	hd.metrics.DecidersOpened.Dec()
 }

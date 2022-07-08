@@ -1,1 +1,1 @@
-## State-oriented, Flexibility Tunable, Equality-Nursed (Hierarchical) Messaging Client
+## State-oriented, Flexibility-Tunable, Equality-Nursed (Hierarchical) Messaging Client

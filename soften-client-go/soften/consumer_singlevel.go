@@ -22,7 +22,7 @@ type leveledConsumer struct {
 }
 
 func newSingleLeveledConsumer(parentLogger log.Logger, client *client, level internal.TopicLevel, conf *config.ConsumerConfig,
-	messageCh chan ConsumerMessage, handlers *leveledConsumeHandlers) (*leveledConsumer, error) {
+	messageCh chan ConsumerMessage, handlers *leveledConsumeDeciders) (*leveledConsumer, error) {
 	cs := &leveledConsumer{logger: parentLogger.SubLogger(log.Fields{"level": level}),
 		level: level, messageCh: messageCh, statusStrategy: conf.BalanceStrategy}
 	// create status leveledConsumer
@@ -35,21 +35,21 @@ func newSingleLeveledConsumer(parentLogger log.Logger, client *client, level int
 		if pendingConsumer, err := cs.internalSubscribe(client, conf, message.StatusPending); err != nil {
 			return nil, err
 		} else {
-			cs.pendingConsumer = newStatusConsumer(cs.logger, pendingConsumer, message.StatusPending, conf.Pending, handlers.pendingHandler)
+			cs.pendingConsumer = newStatusConsumer(cs.logger, pendingConsumer, message.StatusPending, conf.Pending, handlers.pendingDecider)
 		}
 	}
 	if conf.BlockingEnable {
 		if blockingConsumer, err := cs.internalSubscribe(client, conf, message.StatusBlocking); err != nil {
 			return nil, err
 		} else {
-			cs.blockingConsumer = newStatusConsumer(cs.logger, blockingConsumer, message.StatusBlocking, conf.Blocking, handlers.blockingHandler)
+			cs.blockingConsumer = newStatusConsumer(cs.logger, blockingConsumer, message.StatusBlocking, conf.Blocking, handlers.blockingDecider)
 		}
 	}
 	if conf.RetryingEnable {
 		if retryingConsumer, err := cs.internalSubscribe(client, conf, message.StatusRetrying); err != nil {
 			return nil, err
 		} else {
-			cs.retryingConsumer = newStatusConsumer(cs.logger, retryingConsumer, message.StatusRetrying, conf.Retrying, handlers.retryingHandler)
+			cs.retryingConsumer = newStatusConsumer(cs.logger, retryingConsumer, message.StatusRetrying, conf.Retrying, handlers.retryingDecider)
 		}
 	}
 	// start to listen message from all status leveledConsumer

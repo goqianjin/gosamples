@@ -15,18 +15,21 @@ type deadDecideOptions struct {
 type deadDecider struct {
 	router  *reRouter
 	options deadDecideOptions
+	metrics *internal.ListenerDecideGotoMetrics
 }
 
-func newDeadHandler(client *client, options deadDecideOptions) (*deadDecider, error) {
+func newDeadHandler(client *client, listener *consumeListener, options deadDecideOptions) (*deadDecider, error) {
 	rt, err := newReRouter(client.logger, client.Client, reRouterOptions{Topic: options.topic})
 	if err == nil {
 		return nil, err
 	}
-	statusRouter := &deadDecider{router: rt, options: options}
+	metrics := client.metricsProvider.GetListenerDecideGotoMetrics(listener.logTopics, listener.logLevels, message.GotoDead)
+	statusRouter := &deadDecider{router: rt, options: options, metrics: metrics}
+	metrics.DecidersOpened.Inc()
 	return statusRouter, nil
 }
 
-func (hd *deadDecider) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
+func (d *deadDecider) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
 	if !cheStatus.IsPassed() {
 		return false
 	}
@@ -56,13 +59,13 @@ func (hd *deadDecider) Decide(msg pulsar.ConsumerMessage, cheStatus checker.Chec
 		Properties:  props,
 		EventTime:   msg.EventTime(),
 	}
-	hd.router.Chan() <- &RerouteMessage{
+	d.router.Chan() <- &RerouteMessage{
 		consumerMsg: msg,
 		producerMsg: producerMsg,
 	}
 	return true
 }
 
-func (hd *deadDecider) close() {
-
+func (d *deadDecider) close() {
+	d.metrics.DecidersOpened.Dec()
 }

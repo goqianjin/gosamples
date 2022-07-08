@@ -15,23 +15,23 @@ type MetricsProvider struct {
 	producerPublishLatency *prometheus.HistogramVec // producers publish latency
 	producerDecideLatency  *prometheus.HistogramVec // route latency
 
-	// producer check typed label: {topic=, check_type=}
-	producerTypedCheckerOpened *prometheus.GaugeVec   // gauge of produce checkers
-	producerTypedCheckPassed   *prometheus.CounterVec // counter of produce check passed
-	producerTypedCheckRejected *prometheus.CounterVec // counter of produce check rejected
-	producerTypedCheckLatency  *prometheus.HistogramVec
+	// producer checker label: {topic=, check_type=}
+	producerCheckersOpened       *prometheus.GaugeVec   // gauge of produce checkers
+	producerCheckerCheckPassed   *prometheus.CounterVec // counter of produce check passed
+	producerCheckerCheckRejected *prometheus.CounterVec // counter of produce check rejected
+	producerCheckerCheckLatency  *prometheus.HistogramVec
 
 	// producer decider labels: {topic=, goto=}
-	producerDeciderGotoOpened *prometheus.GaugeVec     // gauge of routers
-	producerDecideGotoSuccess *prometheus.CounterVec   // counter of producers decide messages
-	producerDecideGotoFailed  *prometheus.CounterVec   // counter of producers decide messages
-	producerDecideGotoLatency *prometheus.HistogramVec // route latency
+	producerDecidersOpened     *prometheus.GaugeVec     // gauge of routers
+	producerDeciderGotoSuccess *prometheus.CounterVec   // counter of producers decide messages
+	producerDeciderGotoFailed  *prometheus.CounterVec   // counter of producers decide messages
+	producerDeciderGotoLatency *prometheus.HistogramVec // route latency
 
 	// producer decider (router) labels: {topic=, goto=, route_topic}
-	producerRouteDeciderOpened *prometheus.GaugeVec     // gauge of routers
-	producerRouteDecideSuccess *prometheus.CounterVec   // counter of producers decide messages
-	producerRouteDecideFailed  *prometheus.CounterVec   // counter of producers decide messages
-	produceRouteDecideLatency  *prometheus.HistogramVec // route latency
+	producerRouteDecidersOpened     *prometheus.GaugeVec     // gauge of routers
+	producerRouteDeciderGotoSuccess *prometheus.CounterVec   // counter of producers decide messages
+	producerRouteDeciderGotoFailed  *prometheus.CounterVec   // counter of producers decide messages
+	producerRouteDeciderGotoLatency *prometheus.HistogramVec // route latency
 
 	// listener labels: {topics, levels}
 	listenersOpened        *prometheus.GaugeVec     // gauge of opened listeners
@@ -42,15 +42,18 @@ type MetricsProvider struct {
 	listenerHandleLatency  *prometheus.HistogramVec
 	listenerDecideLatency  *prometheus.HistogramVec
 
-	// listen typed checker labels: {topics, levels, check_type}
-	listenerTypedCheckersEnabled *prometheus.GaugeVec   // gauge of checkers
-	listenerTypedCheckPassed     *prometheus.CounterVec // counter of produce check passed
-	listenerTypedCheckRejected   *prometheus.CounterVec // counter of produce check rejected
-	listenerTypedCheckLatency    *prometheus.HistogramVec
+	// listener checker labels: {topics, levels, check_type}
+	listenerCheckersOpened       *prometheus.GaugeVec   // gauge of checkers
+	listenerCheckerCheckPassed   *prometheus.CounterVec // counter of produce check passed
+	listenerCheckerCheckRejected *prometheus.CounterVec // counter of produce check rejected
+	listenerCheckerCheckLatency  *prometheus.HistogramVec
 
 	// listener handle labels: {topics=, levels=, goto=}
-	listenerHandleGotoLatency *prometheus.HistogramVec
-	listenerDecideGotoLatency *prometheus.HistogramVec
+	listenerDecidersOpened     *prometheus.GaugeVec
+	listenerHandlerGotoLatency *prometheus.HistogramVec
+	listenerDeciderGotoLatency *prometheus.HistogramVec
+	// listener leveled decider labels: {topics=, levels=, goto=, level=}
+	listenerLeveledDecidersOpened *prometheus.GaugeVec
 
 	// consumer labels: {topics, levels, topic, level, status}
 	consumersOpened        *prometheus.GaugeVec     // gauge of consumers
@@ -62,25 +65,365 @@ type MetricsProvider struct {
 	consumerConsumeLatency *prometheus.HistogramVec // including receive, listen, check, handle and decide
 
 	// consumer handle labels: {topics, levels, topic, level, status, goto}
-	consumerHandleGoto             *prometheus.CounterVec   // labels: topics, levels, topic, level, status, goto
-	consumerHandleGotoLatency      *prometheus.HistogramVec // labels: topics, levels, topic, level, status, goto, reason: {over_reconsume_times, internal_error}
-	consumerHandleGotoConsumeTimes *prometheus.HistogramVec // labels: topics, levels, topic, level, status, goto, reason: {over_reconsume_times, internal_error}
-	consumerDeciderOpened          *prometheus.GaugeVec     // gauge of handlers
-	consumerDecideGotoSuccess      *prometheus.CounterVec
-	consumerDecideGotoFailed       *prometheus.CounterVec
-	consumerDecideGotoLatency      *prometheus.HistogramVec // labels: topic, level, status
+	consumerHandlerGoto             *prometheus.CounterVec   // labels: topics, levels, topic, level, status, goto
+	consumerHandlerGotoLatency      *prometheus.HistogramVec // labels: topics, levels, topic, level, status, goto, reason: {over_reconsume_times, internal_error}
+	consumerHandlerGotoConsumeTimes *prometheus.HistogramVec // labels: topics, levels, topic, level, status, goto, reason: {over_reconsume_times, internal_error}
+	consumerDecidersOpened          *prometheus.GaugeVec     // gauge of handlers
+	consumerDeciderGotoSuccess      *prometheus.CounterVec
+	consumerDecideGotoFailed        *prometheus.CounterVec
+	consumerDecideGotoLatency       *prometheus.HistogramVec // labels: topic, level, status
 
 	// messages terminate labels: {topic=, level=, original_topic=, original_level=,}
-	messagesAcks              *prometheus.CounterVec
-	messagesNacks             *prometheus.CounterVec
-	messagesTerminatedLatency *prometheus.HistogramVec // whole latency on message lifecycle, from published to done/discard/dead. labels: topic, level, status[done, discard, dead]
+	messagesAcks             *prometheus.CounterVec
+	messagesNacks            *prometheus.CounterVec
+	messagesTerminateLatency *prometheus.HistogramVec // whole latency on message lifecycle, from published to done/discard/dead. labels: topic, level, status[done, discard, dead]
 
 }
 
 func NewMetricsProvider(metricsLevel int, userDefinedLabels map[string]string) *MetricsProvider {
-	metrics := &MetricsProvider{}
-	return metrics
+	constLabels := map[string]string{
+		"client": "soften",
+	}
+	for k, v := range userDefinedLabels {
+		constLabels[k] = v
+	}
 
+	metrics := &MetricsProvider{metricsLevel: metricsLevel}
+
+	// client labels: {url=}
+	clientLabels := []string{"url"}
+	metrics.clientsOpened = metrics.tryRegisterGauge(prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:        "soften_client_opened",
+		Help:        "Gauge of opened clients",
+		ConstLabels: constLabels,
+	}, clientLabels))
+
+	// producer labels: {topic=}
+	producerLabels := []string{"topic"}
+	metrics.producersOpened = metrics.tryRegisterGauge(prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:        "soften_client_producers_opened",
+		Help:        "Gauge of opened producers",
+		ConstLabels: constLabels,
+	}, producerLabels))
+	metrics.producerPublishLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_client_producer_publish_latency",
+		Help:        "Publish latency experienced by the client",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, producerLabels))
+	metrics.producerDecideLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_client_producer_decide_latency",
+		Help:        "Decide latency experienced by the client",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, producerLabels))
+
+	// producer checker label: {topic=, check_type=}
+	produceCheckerLabels := []string{"topic", "check_type"}
+	metrics.producerCheckersOpened = metrics.tryRegisterGauge(prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:        "soften_produce_checkers_opened",
+		Help:        "Gauge of opened produce checkers",
+		ConstLabels: constLabels,
+	}, produceCheckerLabels))
+	metrics.producerCheckerCheckPassed = metrics.tryRegisterCounter(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "soften_produce_checker_check_passed",
+		Help:        "Counter of check passed by produce checker",
+		ConstLabels: constLabels,
+	}, produceCheckerLabels))
+	metrics.producerCheckerCheckRejected = metrics.tryRegisterCounter(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "soften_produce_checker_check_rejected",
+		Help:        "Counter of check rejected by produce checker",
+		ConstLabels: constLabels,
+	}, produceCheckerLabels))
+	metrics.producerCheckerCheckLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_produce_checker_check_latency",
+		Help:        "Check latency experienced by the client",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, produceCheckerLabels))
+
+	// producer decider labels: {topic=, goto=}
+	produceDeciderGotoLabels := []string{"topic", "goto"}
+	metrics.producerDecidersOpened = metrics.tryRegisterGauge(prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:        "soften_produce_deciders_opened",
+		Help:        "Gauge of opened produce deciders",
+		ConstLabels: constLabels,
+	}, produceDeciderGotoLabels))
+	metrics.producerDeciderGotoSuccess = metrics.tryRegisterCounter(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "soften_produce_decider_decide_passed",
+		Help:        "Counter of check passed by produce checker",
+		ConstLabels: constLabels,
+	}, produceDeciderGotoLabels))
+	metrics.producerDeciderGotoFailed = metrics.tryRegisterCounter(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "soften_produce_decider_decide_rejected",
+		Help:        "Counter of decide rejected by produce checker",
+		ConstLabels: constLabels,
+	}, produceDeciderGotoLabels))
+	metrics.producerDeciderGotoLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_produce_decider_decide_latency",
+		Help:        "Decide latency experienced by the producer",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, produceDeciderGotoLabels))
+
+	// producer decider (router) labels: {topic=, goto=, route_topic}
+	produceRouteDeciderGotoLabels := []string{"topic", "goto", "route_topic"}
+	metrics.producerRouteDecidersOpened = metrics.tryRegisterGauge(prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:        "soften_produce_route_deciders_opened",
+		Help:        "Gauge of opened produce deciders",
+		ConstLabels: constLabels,
+	}, produceRouteDeciderGotoLabels))
+	metrics.producerRouteDeciderGotoSuccess = metrics.tryRegisterCounter(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "soften_produce_route_decider_decide_passed",
+		Help:        "Counter of check passed by produce checker",
+		ConstLabels: constLabels,
+	}, produceRouteDeciderGotoLabels))
+	metrics.producerRouteDeciderGotoFailed = metrics.tryRegisterCounter(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "soften_produce_route_decider_decide_rejected",
+		Help:        "Counter of decide rejected by produce checker",
+		ConstLabels: constLabels,
+	}, produceRouteDeciderGotoLabels))
+	metrics.producerRouteDeciderGotoLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_produce_route_decider_decide_latency",
+		Help:        "Decide latency experienced by the producer",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, produceRouteDeciderGotoLabels))
+
+	// listener labels: {topics, levels}
+	listenerLabels := []string{"topics", "levels"}
+	metrics.listenersOpened = metrics.tryRegisterGauge(prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:        "soften_listeners_opened",
+		Help:        "Gauge of opened listeners",
+		ConstLabels: constLabels,
+	}, listenerLabels))
+	metrics.listenersRunning = metrics.tryRegisterGauge(prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:        "soften_listeners_running",
+		Help:        "Gauge of running listeners",
+		ConstLabels: constLabels,
+	}, listenerLabels))
+	metrics.listenerReceiveLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_listener_receive_latency",
+		Help:        "Receive latency experienced by the listener",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, listenerLabels))
+	metrics.listenerListenLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_listener_listen_latency",
+		Help:        "Listen latency experienced by the listener",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, listenerLabels))
+	metrics.listenerCheckLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_listener_check_latency",
+		Help:        "Check latency experienced by the listener",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, listenerLabels))
+	metrics.listenerHandleLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_listener_handle_latency",
+		Help:        "Handle latency experienced by the listener",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, listenerLabels))
+	metrics.listenerDecideLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_listener_decide_latency",
+		Help:        "Decide latency experienced by the listener",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, listenerLabels))
+
+	// listener checker labels: {topics, levels, check_type}
+	listeneCheckerLabels := []string{"topics", "levels", "check_type"}
+	metrics.listenerCheckersOpened = metrics.tryRegisterGauge(prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:        "soften_listen_checkers_opened",
+		Help:        "Gauge of opened listen checkers",
+		ConstLabels: constLabels,
+	}, listeneCheckerLabels))
+	metrics.listenerCheckerCheckPassed = metrics.tryRegisterCounter(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "soften_listen_checker_check_passed",
+		Help:        "Counter of check passed by listen checker",
+		ConstLabels: constLabels,
+	}, listeneCheckerLabels))
+	metrics.listenerCheckerCheckRejected = metrics.tryRegisterCounter(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "soften_listen_checker_check_rejected",
+		Help:        "Counter of check rejected by listen checker",
+		ConstLabels: constLabels,
+	}, listeneCheckerLabels))
+	metrics.listenerCheckerCheckLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_listen_checker_check_latency",
+		Help:        "Check latency experienced by listen checker",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, listeneCheckerLabels))
+
+	// listener handle labels: {topics=, levels=, goto=}
+	listenHandlerGotoLabels := []string{"topics", "levels", "goto"}
+	metrics.listenerHandlerGotoLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_listen_handler_goto_latency",
+		Help:        "Handle latency experienced by the handler",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, listenHandlerGotoLabels))
+	metrics.listenerDeciderGotoLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_listen_decider_decide_latency",
+		Help:        "Decide latency experienced by the listen decider",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, listenHandlerGotoLabels))
+	metrics.listenerDecidersOpened = metrics.tryRegisterGauge(prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:        "soften_consumers_opened",
+		Help:        "Gauge of opened consumers",
+		ConstLabels: constLabels,
+	}, listenHandlerGotoLabels))
+	// listener leveled decider labels: {topics=, levels=, goto=, level=}
+	listenLeveledDeciderLabels := []string{"topics", "levels", "goto", "level"}
+	metrics.listenerLeveledDecidersOpened = metrics.tryRegisterGauge(prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:        "soften_consumers_opened",
+		Help:        "Gauge of opened consumers",
+		ConstLabels: constLabels,
+	}, listenLeveledDeciderLabels))
+
+	// consumer labels: {topics, levels, topic, level, status}
+	consumerLabels := []string{"topics", "levels", "topic", "level", "status"}
+	metrics.consumersOpened = metrics.tryRegisterGauge(prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:        "soften_consumers_opened",
+		Help:        "Gauge of opened consumers",
+		ConstLabels: constLabels,
+	}, consumerLabels))
+	metrics.consumerReceiveLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_consumer_receive_latency",
+		Help:        "Receive latency experienced by the consumer",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, consumerLabels))
+	metrics.consumerListenLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_consumer_listen_latency",
+		Help:        "Listen latency experienced by the consumer",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, consumerLabels))
+	metrics.consumerCheckLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_consumer_check_latency",
+		Help:        "Check latency experienced by the consumer",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, consumerLabels))
+	metrics.consumerHandleLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_consumer_handle_latency",
+		Help:        "Handle latency experienced by the consumer",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, consumerLabels))
+	metrics.consumerDecideLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_consumer_decide_latency",
+		Help:        "Decide latency experienced by the consumer",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, consumerLabels))
+	metrics.consumerConsumeLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_consumer_decide_latency",
+		Help:        "Whole consume latency experienced by the consumer",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, consumerLabels))
+
+	// consumer handle labels: {topics, levels, topic, level, status, goto}
+	consumerHandlerLabels := []string{"topics", "levels", "topic", "level", "status", "goto"}
+	metrics.consumerHandlerGotoLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_consume_handler_goto_latency",
+		Help:        "Handle latency experienced by the consume handler",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, consumerHandlerLabels))
+	metrics.consumerHandlerGoto = metrics.tryRegisterCounter(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "soften_consume_handler_handled",
+		Help:        "Counter of handle done by consume handler",
+		ConstLabels: constLabels,
+	}, consumerHandlerLabels))
+	metrics.consumerHandlerGotoLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_consume_handler_handle_latency",
+		Help:        "Handle latency experienced by the consume handler",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, consumerHandlerLabels))
+	metrics.consumerHandlerGotoConsumeTimes = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_consume_handler_handle_times",
+		Help:        "Handle times experienced by the consume handler",
+		ConstLabels: constLabels,
+		Buckets:     []float64{1, 2, 3, 5, 8, 10, 13, 17, 20, 30, 40, 50, 60, 80, 100},
+	}, consumerHandlerLabels))
+	metrics.consumerDecidersOpened = metrics.tryRegisterGauge(prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		Name:        "soften_consume_deciders_opened",
+		Help:        "Gauge of opened consume deciders",
+		ConstLabels: constLabels,
+	}, consumerHandlerLabels))
+	metrics.consumerDeciderGotoSuccess = metrics.tryRegisterCounter(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "soften_consume_decider_decide_passed",
+		Help:        "Counter of check passed by consume checker",
+		ConstLabels: constLabels,
+	}, consumerHandlerLabels))
+	metrics.consumerDecideGotoFailed = metrics.tryRegisterCounter(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "soften_consume_decider_decide_rejected",
+		Help:        "Counter of decide rejected by consume checker",
+		ConstLabels: constLabels,
+	}, consumerHandlerLabels))
+	metrics.consumerDecideGotoLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_consume_decider_decide_latency",
+		Help:        "Decide latency experienced by the consume decider",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, consumerHandlerLabels))
+
+	// messages terminate labels: {topic=, level=, original_topic=, original_level=,}
+	commonMessageLabels := []string{"topic", "level", "original_topic", "original_level"}
+	metrics.messagesAcks = metrics.tryRegisterCounter(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "soften_consume_decider_decide_rejected",
+		Help:        "Counter of decide rejected by consume checker",
+		ConstLabels: constLabels,
+	}, commonMessageLabels))
+	metrics.messagesNacks = metrics.tryRegisterCounter(prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name:        "soften_consume_decider_decide_rejected",
+		Help:        "Counter of decide rejected by consume checker",
+		ConstLabels: constLabels,
+	}, commonMessageLabels))
+	metrics.messagesTerminateLatency = metrics.tryRegisterHistogram(prometheus.NewHistogramVec(prometheus.HistogramOpts{
+		Name:        "soften_consume_decider_decide_latency",
+		Help:        "Decide latency experienced by the consume decider",
+		ConstLabels: constLabels,
+		Buckets:     []float64{.0005, .001, .005, .01, .025, .05, .1, .25, .5, 1, 2.5, 5, 10},
+	}, commonMessageLabels)) // whole latency on message lifecycle, from published to done/discard/dead
+
+	return metrics
+}
+func (v *MetricsProvider) tryRegisterCounter(vec *prometheus.CounterVec) *prometheus.CounterVec {
+	err := prometheus.DefaultRegisterer.Register(vec)
+	if err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			vec = are.ExistingCollector.(*prometheus.CounterVec)
+		}
+	}
+	return vec
+}
+
+func (v *MetricsProvider) tryRegisterGauge(vec *prometheus.GaugeVec) *prometheus.GaugeVec {
+	err := prometheus.DefaultRegisterer.Register(vec)
+	if err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			vec = are.ExistingCollector.(*prometheus.GaugeVec)
+		}
+	}
+	return vec
+}
+
+func (v *MetricsProvider) tryRegisterHistogram(vec *prometheus.HistogramVec) *prometheus.HistogramVec {
+	err := prometheus.DefaultRegisterer.Register(vec)
+	if err != nil {
+		if are, ok := err.(prometheus.AlreadyRegisteredError); ok {
+			vec = are.ExistingCollector.(*prometheus.HistogramVec)
+		}
+	}
+	return vec
 }
 
 func (v *MetricsProvider) GetClientMetrics(url string) *ClientMetrics {
@@ -103,10 +446,10 @@ func (v *MetricsProvider) GetProducerMetrics(topic string) *ProducerMetrics {
 func (v *MetricsProvider) GetProducerTypedCheckMetrics(topic string, checkType CheckType) *TypedCheckMetrics {
 	labels := prometheus.Labels{"topic": topic, "type": checkType.String()}
 	metrics := &TypedCheckMetrics{
-		CheckersOpened: v.producerTypedCheckerOpened.With(labels),
-		CheckPassed:    v.producerTypedCheckPassed.With(labels),
-		CheckRejected:  v.producerTypedCheckRejected.With(labels),
-		CheckLatency:   v.producerTypedCheckLatency.With(labels),
+		CheckersOpened: v.producerCheckersOpened.With(labels),
+		CheckPassed:    v.producerCheckerCheckPassed.With(labels),
+		CheckRejected:  v.producerCheckerCheckRejected.With(labels),
+		CheckLatency:   v.producerCheckerCheckLatency.With(labels),
 	}
 	return metrics
 }
@@ -114,10 +457,10 @@ func (v *MetricsProvider) GetProducerTypedCheckMetrics(topic string, checkType C
 func (v *MetricsProvider) GetProducerDecideGotoMetrics(topic, gotoAction string) *DecideGotoMetrics {
 	labels := prometheus.Labels{"topic": topic, "goto": gotoAction}
 	metrics := &DecideGotoMetrics{
-		DecidersOpened: v.producerDeciderGotoOpened.With(labels),
-		DecideSuccess:  v.producerDecideGotoSuccess.With(labels),
-		DecideFailed:   v.producerDecideGotoFailed.With(labels),
-		DecideLatency:  v.producerDecideGotoLatency.With(labels),
+		DecidersOpened: v.producerDecidersOpened.With(labels),
+		DecideSuccess:  v.producerDeciderGotoSuccess.With(labels),
+		DecideFailed:   v.producerDeciderGotoFailed.With(labels),
+		DecideLatency:  v.producerDeciderGotoLatency.With(labels),
 	}
 	return metrics
 }
@@ -125,10 +468,10 @@ func (v *MetricsProvider) GetProducerDecideGotoMetrics(topic, gotoAction string)
 func (v *MetricsProvider) GetProducerDecideRouteMetrics(topic, gotoAction string, routeTopic string) *DecideGotoMetrics {
 	labels := prometheus.Labels{"topic": topic, "goto": gotoAction, "route_topic": routeTopic}
 	metrics := &DecideGotoMetrics{
-		DecidersOpened: v.producerDeciderGotoOpened.With(labels),
-		DecideSuccess:  v.producerDecideGotoSuccess.With(labels),
-		DecideFailed:   v.producerDecideGotoFailed.With(labels),
-		DecideLatency:  v.producerDecideGotoLatency.With(labels),
+		DecidersOpened: v.producerDecidersOpened.With(labels),
+		DecideSuccess:  v.producerDeciderGotoSuccess.With(labels),
+		DecideFailed:   v.producerDeciderGotoFailed.With(labels),
+		DecideLatency:  v.producerDeciderGotoLatency.With(labels),
 	}
 	return metrics
 }
@@ -150,10 +493,10 @@ func (v *MetricsProvider) GetListenMetrics(topics, levels string) *ListenMetrics
 func (v *MetricsProvider) GetListenerTypedCheckMetrics(topics, levels string, checkType CheckType) *TypedCheckMetrics {
 	labels := prometheus.Labels{"topics": topics, "levels": levels, "check_type": checkType.String()}
 	metrics := &TypedCheckMetrics{
-		CheckersOpened: v.listenerTypedCheckersEnabled.With(labels),
-		CheckPassed:    v.listenerTypedCheckPassed.With(labels),
-		CheckRejected:  v.listenerTypedCheckRejected.With(labels),
-		CheckLatency:   v.listenerTypedCheckLatency.With(labels),
+		CheckersOpened: v.listenerCheckersOpened.With(labels),
+		CheckPassed:    v.listenerCheckerCheckPassed.With(labels),
+		CheckRejected:  v.listenerCheckerCheckRejected.With(labels),
+		CheckLatency:   v.listenerCheckerCheckLatency.With(labels),
 	}
 	return metrics
 }
@@ -161,8 +504,24 @@ func (v *MetricsProvider) GetListenerTypedCheckMetrics(topics, levels string, ch
 func (v *MetricsProvider) GetListenerHandleMetrics(topics, levels string, msgGoto MessageGoto) *ListenerHandleMetrics {
 	labels := prometheus.Labels{"topics": topics, "levels": levels, "goto": msgGoto.String()}
 	metrics := &ListenerHandleMetrics{
-		HandleGotoLatency: v.listenerHandleGotoLatency.With(labels),
-		DecideGotoLatency: v.listenerDecideGotoLatency.With(labels),
+		HandleGotoLatency: v.listenerHandlerGotoLatency.With(labels),
+		DecideGotoLatency: v.listenerDeciderGotoLatency.With(labels),
+	}
+	return metrics
+}
+
+func (v *MetricsProvider) GetListenerDecideGotoMetrics(topics, levels string, msgGoto MessageGoto) *ListenerDecideGotoMetrics {
+	labels := prometheus.Labels{"topics": topics, "levels": levels, "goto": msgGoto.String()}
+	metrics := &ListenerDecideGotoMetrics{
+		DecidersOpened: v.listenerDecidersOpened.With(labels),
+	}
+	return metrics
+}
+
+func (v *MetricsProvider) GetListenerLeveledDecideGotoMetrics(topics, levels string, level TopicLevel, msgGoto MessageGoto) *ListenerDecideGotoMetrics {
+	labels := prometheus.Labels{"topics": topics, "levels": levels, "level": level.String(), "goto": msgGoto.String()}
+	metrics := &ListenerDecideGotoMetrics{
+		DecidersOpened: v.listenerLeveledDecidersOpened.With(labels),
 	}
 	return metrics
 }
@@ -186,16 +545,16 @@ func (v *MetricsProvider) GetConsumerHandleGotoMetrics(topics, levels, topic str
 	labels := prometheus.Labels{"topics": topics, "levels": levels, "topic": topic, "level": level.String(),
 		"status": status.String(), "goto": msgGoto.String()}
 	metrics := &DecideGotoMetrics{
-		DecidersOpened: v.consumerDeciderOpened.With(labels),
-		DecideSuccess:  v.consumerDecideGotoSuccess.With(labels),
+		DecidersOpened: v.consumerDecidersOpened.With(labels),
+		DecideSuccess:  v.consumerDeciderGotoSuccess.With(labels),
 		DecideFailed:   v.consumerDecideGotoFailed.With(labels),
 		DecideLatency:  v.consumerDecideGotoLatency.With(labels),
 	}
 	handledMetrics := &ConsumerHandleGotoMetrics{
 		DecideGotoMetrics:      metrics,
-		HandleGoto:             v.consumerHandleGoto.With(labels),
-		HandleGotoLatency:      v.consumerHandleGotoLatency.With(labels),
-		HandleGotoConsumeTimes: v.consumerHandleGotoConsumeTimes.With(labels),
+		HandleGoto:             v.consumerHandlerGoto.With(labels),
+		HandleGotoLatency:      v.consumerHandlerGotoLatency.With(labels),
+		HandleGotoConsumeTimes: v.consumerHandlerGotoConsumeTimes.With(labels),
 	}
 	return handledMetrics
 }
@@ -205,7 +564,7 @@ func (v *MetricsProvider) GetMessageMetrics(topic, gotoAction string, routeTopic
 	metrics := &MessageMetrics{
 		Acks:              v.messagesAcks.MustCurryWith(labels),
 		Nacks:             v.messagesNacks.MustCurryWith(labels),
-		TerminatedLatency: v.messagesTerminatedLatency.MustCurryWith(labels),
+		TerminatedLatency: v.messagesTerminateLatency.MustCurryWith(labels),
 	}
 	return metrics
 }
@@ -223,9 +582,8 @@ type ClientMetrics struct {
 // soften_client_producer_messages_published {topic=};
 // soften_client_producer_publish_latency {topic=};
 type ProducerMetrics struct {
-	ProducersOpened   prometheus.Gauge    // gauge of producers
-	MessagesPublished prometheus.Counter  // counter of producers publish messages
-	PublishLatency    prometheus.Observer // producers publish latency
+	ProducersOpened prometheus.Gauge    // gauge of producers
+	PublishLatency  prometheus.Observer // producers publish latency
 }
 
 type TypedCheckMetrics struct {
@@ -264,6 +622,10 @@ type ListenMetrics struct {
 type ListenerHandleMetrics struct {
 	HandleGotoLatency prometheus.Observer
 	DecideGotoLatency prometheus.Observer
+}
+
+type ListenerDecideGotoMetrics struct {
+	DecidersOpened prometheus.Gauge // gauge of routers
 }
 
 // ConsumerMetrics composes these metrics generated during consume with {topic=, level=, status=} label:

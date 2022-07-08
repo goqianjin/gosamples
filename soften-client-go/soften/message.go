@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/shenqianjin/soften-client-go/soften/checker"
+	"github.com/shenqianjin/soften-client-go/soften/message"
+
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 	"github.com/shenqianjin/soften-client-go/soften/internal/strategy"
@@ -102,4 +105,28 @@ func (mcs *messageChSelectorImpl) receiveOneByWeight(chs []<-chan ConsumerMessag
 		*excludedIndexes = append(*excludedIndexes, index)
 		return mcs.receiveOneByWeight(chs, balanceStrategy, excludedIndexes)
 	}
+}
+
+// ------ helper ------
+
+var internalGotoReroute = internal.MessageGoto("Reroute")
+
+var checkTypeGotoMap = map[internal.CheckType]internal.MessageGoto{
+	checker.CheckTypePreDiscard:  message.GotoDiscard,
+	checker.CheckTypePreDead:     message.GotoDead,
+	checker.CheckTypePreUpgrade:  message.GotoUpgrade,
+	checker.CheckTypePreDegrade:  message.GotoDegrade,
+	checker.CheckTypePreBlocking: message.GotoBlocking,
+	checker.CheckTypePrePending:  message.GotoPending,
+	checker.CheckTypePreRetrying: message.GotoRetrying,
+	checker.CheckTypePreReroute:  internalGotoReroute,
+
+	checker.CheckTypePostDiscard:  message.GotoDiscard,
+	checker.CheckTypePostDead:     message.GotoDead,
+	checker.CheckTypePostUpgrade:  message.GotoUpgrade,
+	checker.CheckTypePostDegrade:  message.GotoDegrade,
+	checker.CheckTypePostBlocking: message.GotoBlocking,
+	checker.CheckTypePostPending:  message.GotoPending,
+	checker.CheckTypePostRetrying: message.GotoRetrying,
+	checker.CheckTypePostReroute:  internalGotoReroute,
 }
