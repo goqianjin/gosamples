@@ -14,27 +14,24 @@
     <!-- body -->
     <!-- produce cases -->
     <tr align="left">
-        <th rowspan="3">Produce</th>
-        <th >send 1msg</th>
-        <th>单个消息</th>
-        <th>create topic; <br> send 1 msg; <br> delete topic;</th>
+        <th rowspan="4">Produce</th><th >send 1msg</th><th>单个消息</th><th>Passed</th>
     </tr>
-    <tr align="left"><th>send 1msg (Ready) asynchronously </th><th></th><th></th></tr>
-    <tr align="left"><th>send 1msg (Ready) + send 1msg (route)</th><th></th><th></th></tr>
+    <tr align="left"><th>send 1msg (Ready) + send 1msg (route to L1)</th><th></th><th></th></tr>
+    <tr align="left"><th>sendAsync 1msg (Ready) </th><th></th><th></th></tr>
+    <tr align="left"><th>sendAsync 1msg (Ready) + send 1msg (route to L1) </th><th></th><th></th></tr>
     <!-- listen cases -->
     <tr align="left">
-        <th rowspan="6">Listen</th></th>
-        <th>listen 1msg (Ready)</th><th></th><th>send msg before</th>
+        <th rowspan="7">Listen</th></th><th>listen 1msg (Ready)</th><th></th><th>send msg before</th>
     </tr>
     <tr align="left"><th>listen 1msg (Pending)</th><th></th><th>send msg before</th></tr>
     <tr align="left"><th>listen 1msg (Blocking)</th><th></th><th>send msg before</th></tr>
     <tr align="left"><th>listen 1msg (Retrying)</th><th></th><th>send msg before</th></tr>
     <tr align="left"><th>listen 4msg from ALL status</th><th></th><th>send msg before</th></tr>
-    <tr align="left"><th>listen 2msg from main(Ready) and secondary topic</th><th></th><th>send msg before</th></tr>
+    <tr align="left"><th>listen 2msg from main(Ready) and L1</th><th></th><th>send msg before</th></tr>
+    <tr align="left"><th>listen 3msg from main(Ready) and L1&B1</th><th></th><th>send msg before</th></tr>
     <!-- before check cases -->
     <tr align="left">
-        <th rowspan="10">Before-Check</th></th>
-        <th>check goto Done 1msg</th><th></th><th>send msg before</th>
+        <th rowspan="10">Before-Check</th></th><th>check goto Done 1msg</th><th></th><th>send msg before</th>
     </tr>
     <tr align="left"><th>check goto Discard 1msg</th><th></th><th>send msg before</th></tr>
     <tr align="left"><th>check goto Dead 1msg</th><th></th><th>send msg before</th></tr>
@@ -47,8 +44,7 @@
     <tr align="left"><th>check goto ALL goto-actions 9msg</th><th></th><th>send msg before</th></tr>
     <!-- before check cases -->
     <tr align="left">
-        <th rowspan="9">Handle</th></th>
-        <th>handle goto Done 1msg</th><th></th><th>send msg before</th>
+        <th rowspan="9">Handle</th></th><th>handle goto Done 1msg</th><th></th><th>send msg before</th>
     </tr>
     <tr align="left"><th>handle goto Discard 1msg</th><th></th><th>send msg before</th></tr>
     <tr align="left"><th>handle goto Dead 1msg</th><th></th><th>send msg before</th></tr>
