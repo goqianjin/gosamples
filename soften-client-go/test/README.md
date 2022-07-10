@@ -14,11 +14,17 @@
     <!-- body -->
     <!-- produce cases -->
     <tr align="left">
-        <th rowspan="4">Produce</th><th >send 1msg</th><th>单个消息</th><th>Passed</th>
+        <th rowspan="2">Produce</th><th >send 1msg (Ready)</th><th>单个消息</th><th>Passed</th>
     </tr>
-    <tr align="left"><th>send 1msg (Ready) + send 1msg (route to L1)</th><th></th><th></th></tr>
     <tr align="left"><th>sendAsync 1msg (Ready) </th><th></th><th></th></tr>
-    <tr align="left"><th>sendAsync 1msg (Ready) + send 1msg (route to L1) </th><th></th><th></th></tr>
+    <tr align="left">
+        <th rowspan="2">Produce-Check</th><th >(send) check goto route (L1)</th><th>单个消息</th><th>Passed</th>
+    </tr>
+    <tr align="left"><th>(sendAsync) check goto route (L1)</th><th></th><th></th></tr>
+    <tr align="left">
+        <th rowspan="2">Produce-Overall</th><th >send 1msg (Ready) + check goto 1msg (route to L1)</th><th></th><th>Passed</th>
+    </tr>
+    <tr align="left"><th>sendAsync 1msg (Ready) + check goto 1msg (route to L1) </th><th></th><th></th></tr>
     <!-- listen cases -->
     <tr align="left">
         <th rowspan="7">Listen</th></th><th>listen 1msg (Ready)</th><th></th><th>send msg before</th>
