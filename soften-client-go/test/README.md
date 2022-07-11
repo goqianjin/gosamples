@@ -33,8 +33,8 @@
     <tr align="left"><th>listen 1msg (Blocking)</th><th></th><th>send msg before</th></tr>
     <tr align="left"><th>listen 1msg (Retrying)</th><th></th><th>send msg before</th></tr>
     <tr align="left"><th>listen 4msg from ALL status</th><th></th><th>send msg before</th></tr>
-    <tr align="left"><th>listen 2msg from main(Ready) and L1</th><th></th><th>send msg before</th></tr>
-    <tr align="left"><th>listen 3msg from main(Ready) and L1&B1</th><th></th><th>send msg before</th></tr>
+    <tr align="left"><th>listen 2msg from L1(Ready) and L2</th><th></th><th>send msg before</th></tr>
+    <tr align="left"><th>listen 3msg from L1(Ready) and L2&B1</th><th></th><th>send msg before</th></tr>
     <!-- before check cases -->
     <tr align="left">
         <th rowspan="10">Before-Check</th></th><th>check goto Done 1msg</th><th></th><th>send msg before</th>
