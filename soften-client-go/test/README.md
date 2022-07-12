@@ -27,7 +27,7 @@
     <tr align="left"><th>sendAsync 1msg (Ready) + check goto 1msg (route to L1) </th><th></th><th></th></tr>
     <!-- listen cases -->
     <tr align="left">
-        <th rowspan="12">Listen</th></th><th>listen 1msg (Ready)</th><th></th><th>send msg before</th>
+        <th rowspan="13">Listen</th></th><th>listen 1msg (Ready)</th><th></th><th>send msg before</th>
     </tr>
     <tr align="left"><th>listen 1msg (Pending)</th><th></th><th>send msg before</th></tr>
     <tr align="left"><th>listen 1msg (Blocking)</th><th></th><th>send msg before</th></tr>
@@ -39,7 +39,8 @@
     <tr align="left"><th>listen 2msg from L1(Ready) and B1</th><th></th><th>send msg before</th></tr>
     <tr align="left"><th>listen 1msg from S1</th><th></th><th>send msg before</th></tr>
     <tr align="left"><th>listen 2msg from L1(Ready) and S1</th><th></th><th>send msg before</th></tr>
-    <tr align="left"><th>listen 3msg from L1(Ready) and L2&B1&S1</th><th></th><th>send msg before</th></tr>
+    <tr align="left"><th>listen 4msg from L1(Ready) and L2&B1&S1</th><th></th><th>send msg before</th></tr>
+    <tr align="left"><th>listen 7msg from All levels</th><th></th><th>send msg before</th></tr>
     <!-- before check cases -->
     <tr align="left">
         <th rowspan="10">Before-Check</th></th><th>check goto Done 1msg</th><th></th><th>send msg before</th>

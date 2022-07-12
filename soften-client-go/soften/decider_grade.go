@@ -9,7 +9,6 @@ import (
 	"github.com/apache/pulsar-client-go/pulsar/log"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 	"github.com/shenqianjin/soften-client-go/soften/message"
-	"github.com/shenqianjin/soften-client-go/soften/topic"
 )
 
 type gradeOptions struct {
@@ -19,36 +18,33 @@ type gradeOptions struct {
 	msgGoto     internal.MessageGoto
 }
 
-type gradeHandler struct {
+type gradeDecider struct {
 	router *reRouter
 	logger log.Logger
 	//level   internal.TopicLevel
 	metrics *internal.ListenerDecideGotoMetrics
 }
 
-func newGradeHandler(client *client, listener *consumeListener, options gradeOptions) (*gradeHandler, error) {
+func newGradeDecider(client *client, listener *consumeListener, options gradeOptions) (*gradeDecider, error) {
 	if options.topic == "" {
 		return nil, errors.New("topic cannot be blank")
 	}
 	if options.grade2Level == "" {
 		return nil, errors.New("topic level is empty")
 	}
-	suffix, err := topic.NameSuffixOf(options.grade2Level)
-	if err != nil {
-		return nil, err
-	}
+	suffix := options.grade2Level.TopicSuffix()
 	routerOption := reRouterOptions{Topic: options.topic + suffix}
 	rt, err := newReRouter(client.logger, client.Client, routerOption)
 	if err != nil {
 		return nil, err
 	}
 	metrics := client.metricsProvider.GetListenerLeveledDecideGotoMetrics(listener.logTopics, listener.logLevels, options.level, options.msgGoto)
-	hd := &gradeHandler{router: rt, logger: client.logger, metrics: metrics}
+	hd := &gradeDecider{router: rt, logger: client.logger, metrics: metrics}
 	metrics.DecidersOpened.Inc()
 	return hd, nil
 }
 
-func (hd *gradeHandler) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
+func (hd *gradeDecider) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
 	if !cheStatus.IsPassed() {
 		return false
 	}
@@ -82,6 +78,6 @@ func (hd *gradeHandler) Decide(msg pulsar.ConsumerMessage, cheStatus checker.Che
 	return true
 }
 
-func (hd *gradeHandler) close() {
+func (hd *gradeDecider) close() {
 
 }

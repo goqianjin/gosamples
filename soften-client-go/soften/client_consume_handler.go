@@ -12,15 +12,16 @@ import (
 // Handler is the regular processing flow, and it is recommended.
 // the message will be acknowledged when the return is true; If it returns false,
 // the message will be unacknowledged to the main partition, then route to retrying
-// parting if the retrying module is enabled. finally, it goto dead letter partition
+// partition if the retrying module is enabled. finally, it goto dead letter partition
 // when all retrying times exceed the maximum.
 type Handler func(pulsar.Message) (success bool, err error)
 
-// PremiumHandler allows the result contains Done, Retrying, Dead, Pending, Blocking, Degrade and Upgrade statuses.
-// different status will deliver current message to the corresponding destination.
-// Please note the process will be regressed to regular module when the returned
-// status is not enough to do its flow, e.g. HandleStatusPending is returned
-// however the pending flow is not enabled in the multiStatusConsumeFacade configuration.
+// PremiumHandler allows the result contains any goto destination such as Done, Retrying,
+// Dead, Pending, Blocking, Degrade and Upgrade.
+// different goto destination will deliver current message to the corresponding destination-topic.
+// Please note the process will be regressed to regular module when the handled goto destination
+// status is not enough to do its flow, e.g. HandleStatusPending is returned when the pending module
+// is not enabled in the listener configuration.
 type PremiumHandler func(pulsar.Message) HandleStatus
 
 // ------ handle status ------

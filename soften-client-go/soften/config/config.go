@@ -3,15 +3,21 @@ package config
 import (
 	"time"
 
-	"github.com/apache/pulsar-client-go/pulsar/log"
+	"github.com/shenqianjin/soften-client-go/soften/topic"
 
 	"github.com/apache/pulsar-client-go/pulsar"
+	"github.com/apache/pulsar-client-go/pulsar/log"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 )
+
+// ------ library configuration ------
+
+var DebugMode = false
 
 // ------ client configuration ------
 
 type ClientConfig struct {
+	// extract out from pulsar.ClientOptions
 	URL                     string `json:"url"`
 	ConnectionTimeout       uint   `json:"connection_timeout"`         // Optional: default 5s
 	OperationTimeout        uint   `json:"operation_timeout"`          // Optional: default 30s
@@ -43,14 +49,26 @@ type ProducerConfig struct {
 
 	MessageRouter func(*pulsar.ProducerMessage, pulsar.TopicMetadata) int
 
-	RouteEnable        bool         // Optional: 自定义路由开关
-	Route              *RoutePolicy //
-	HandleTimeout      uint         `json:"handle_timeout"` // Optional: 发送消息超时时间 (default: 30 seconds)
-	UpgradeEnable      bool
-	DegradeEnable      bool
+	RouteEnable       bool         // Optional: 自定义路由开关
+	Route             *RoutePolicy //
+	HandleTimeout     uint         `json:"handle_timeout"` // Optional: 发送消息超时时间 (default: 30 seconds)
+	UpgradeEnable     bool
+	DegradeEnable     bool
+	UpgradeTopicLevel internal.TopicLevel `json:"upgrade_topic_level"` // Optional: 主动升级队列级别
+	DegradeTopicLevel internal.TopicLevel `json:"degrade_topic_level"`
+
 	TopicRouter        func(*pulsar.ProducerMessage) internal.TopicLevel // 自定义Topic路由器
 	UidTopicRouters    map[uint32]internal.TopicLevel                    // Uid级别路由静态配置; 优先级低于Bucket级别路由;
 	BucketTopicRouters map[string]internal.TopicLevel                    // Bucket级别路由静态配置; 优先级高于Uid级别路由;
+
+	DeadEnable     bool
+	DiscardEnable  bool
+	BlockingEnable bool
+	PendingEnable  bool
+	RetryingEnable bool
+	//RouteEnable    bool
+	//UpgradeEnable  bool
+	//DegradeEnable  bool
 }
 
 // ------ consumer configuration (multi-status) ------
@@ -90,7 +108,7 @@ type ConsumerConfig struct {
 	HandleTimeout               uint                               `json:"handle_timeout"`                // Optional: 处理消息超时时间 (default: 30 seconds)
 
 	// ------ consumer configuration (multi-level) ------
-	Levels               []internal.TopicLevel                // Required: 默认L1, 且消费的Topic Level级别, len(Topics) == 1 or Topic存在的时候才生效
+	Levels               topic.Levels                         // Required: 默认L1, 且消费的Topic Level级别, len(Topics) == 1 or Topic存在的时候才生效
 	LevelBalanceStrategy internal.BalanceStrategy             // Optional: Topic级别消费策略
 	LevelPolicies        map[internal.TopicLevel]*LevelPolicy // Optional: 级别消费策略
 }
@@ -123,13 +141,11 @@ type LevelPolicy struct {
 }
 
 type RoutePolicy struct {
-	BackEnable          bool // Optional: 是否允许回撤, 回撤路由到主队列或者其他checker中(同步发送有效,异步发送业务代码自行处理)
 	ConnectInSyncEnable bool // Optional: 是否同步建立连接, 首次发送消息需阻塞等待客户端与服务端连接完成
 }
 
 type ReroutePolicy struct {
-	ConnectInSyncEnable bool                   // Optional: 是否同步建立连接, 首次发送消息需阻塞等待客户端与服务端连接完成
-	RejectTo            internal.MessageStatus // 失败拒绝路由新状态
+	ConnectInSyncEnable bool // Optional: 是否同步建立连接, 首次发送消息需阻塞等待客户端与服务端连接完成
 }
 
 /*type ReroutePolicy struct {

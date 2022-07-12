@@ -22,34 +22,34 @@ type leveledConsumer struct {
 }
 
 func newSingleLeveledConsumer(parentLogger log.Logger, client *client, level internal.TopicLevel, conf *config.ConsumerConfig,
-	messageCh chan ConsumerMessage, handlers *leveledConsumeDeciders) (*leveledConsumer, error) {
+	messageCh chan ConsumerMessage, deciders *leveledConsumeDeciders) (*leveledConsumer, error) {
 	cs := &leveledConsumer{logger: parentLogger.SubLogger(log.Fields{"level": level}),
 		level: level, messageCh: messageCh, statusStrategy: conf.BalanceStrategy}
 	// create status leveledConsumer
-	if mainConsumer, err := cs.internalSubscribe(client, conf, message.StatusReady); err != nil {
+	if mainConsumer, err := cs.internalSubscribe(client, conf, level, message.StatusReady); err != nil {
 		return nil, err
 	} else {
 		cs.mainConsumer = newStatusConsumer(cs.logger, mainConsumer, message.StatusReady, conf.Ready, nil)
 	}
 	if conf.PendingEnable {
-		if pendingConsumer, err := cs.internalSubscribe(client, conf, message.StatusPending); err != nil {
+		if pendingConsumer, err := cs.internalSubscribe(client, conf, level, message.StatusPending); err != nil {
 			return nil, err
 		} else {
-			cs.pendingConsumer = newStatusConsumer(cs.logger, pendingConsumer, message.StatusPending, conf.Pending, handlers.pendingDecider)
+			cs.pendingConsumer = newStatusConsumer(cs.logger, pendingConsumer, message.StatusPending, conf.Pending, deciders.pendingDecider)
 		}
 	}
 	if conf.BlockingEnable {
-		if blockingConsumer, err := cs.internalSubscribe(client, conf, message.StatusBlocking); err != nil {
+		if blockingConsumer, err := cs.internalSubscribe(client, conf, level, message.StatusBlocking); err != nil {
 			return nil, err
 		} else {
-			cs.blockingConsumer = newStatusConsumer(cs.logger, blockingConsumer, message.StatusBlocking, conf.Blocking, handlers.blockingDecider)
+			cs.blockingConsumer = newStatusConsumer(cs.logger, blockingConsumer, message.StatusBlocking, conf.Blocking, deciders.blockingDecider)
 		}
 	}
 	if conf.RetryingEnable {
-		if retryingConsumer, err := cs.internalSubscribe(client, conf, message.StatusRetrying); err != nil {
+		if retryingConsumer, err := cs.internalSubscribe(client, conf, level, message.StatusRetrying); err != nil {
 			return nil, err
 		} else {
-			cs.retryingConsumer = newStatusConsumer(cs.logger, retryingConsumer, message.StatusRetrying, conf.Retrying, handlers.retryingDecider)
+			cs.retryingConsumer = newStatusConsumer(cs.logger, retryingConsumer, message.StatusRetrying, conf.Retrying, deciders.retryingDecider)
 		}
 	}
 	// start to listen message from all status leveledConsumer
@@ -117,13 +117,11 @@ func (msc *leveledConsumer) Close() {
 	msc.logger.Info("closed leveled consumer")
 }
 
-func (msc *leveledConsumer) internalSubscribe(cli *client, conf *config.ConsumerConfig, status internal.MessageStatus) (pulsar.Consumer, error) {
-	suffix, err := message.TopicSuffixOf(status)
-	if err != nil {
-		return nil, err
-	}
-	topic := conf.Topics[0] + suffix
-	subscriptionName := conf.SubscriptionName + suffix
+func (msc *leveledConsumer) internalSubscribe(cli *client, conf *config.ConsumerConfig, lvl internal.TopicLevel, status internal.MessageStatus) (pulsar.Consumer, error) {
+	levelSuffix := lvl.TopicSuffix()
+	statusSuffix := status.TopicSuffix()
+	topic := conf.Topics[0] + levelSuffix + statusSuffix
+	subscriptionName := conf.SubscriptionName + levelSuffix + statusSuffix
 	consumerOption := pulsar.ConsumerOptions{
 		Topic:                       topic,
 		SubscriptionName:            subscriptionName,

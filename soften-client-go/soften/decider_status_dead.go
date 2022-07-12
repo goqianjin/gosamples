@@ -18,7 +18,7 @@ type deadDecider struct {
 	metrics *internal.ListenerDecideGotoMetrics
 }
 
-func newDeadHandler(client *client, listener *consumeListener, options deadDecideOptions) (*deadDecider, error) {
+func newDeadDecider(client *client, listener *consumeListener, options deadDecideOptions) (*deadDecider, error) {
 	rt, err := newReRouter(client.logger, client.Client, reRouterOptions{Topic: options.topic})
 	if err == nil {
 		return nil, err

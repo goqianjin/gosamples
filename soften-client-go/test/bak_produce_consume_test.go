@@ -7,9 +7,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/shenqianjin/soften-client-go/soften/checker"
+
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/shenqianjin/soften-client-go/soften"
-	"github.com/shenqianjin/soften-client-go/soften/checker"
 	"github.com/shenqianjin/soften-client-go/soften/config"
 )
 
@@ -24,9 +25,7 @@ func TestNackConsumeTimesHeader(t *testing.T) {
 
 	producer, err := client.CreateProducer(config.ProducerConfig{
 		Topic: "my-topic",
-	}, checker.RouteChecker(func(message *pulsar.ProducerMessage) string {
-		return ""
-	}))
+	})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -37,7 +36,9 @@ func TestNackConsumeTimesHeader(t *testing.T) {
 		SubscriptionName:    "my-sub",
 		Type:                pulsar.Shared,
 		NackRedeliveryDelay: 2 * time.Second,
-	})
+	}, checker.PostBlockingChecker(func(message pulsar.Message, err error) checker.CheckStatus {
+		return checker.CheckStatusRejected
+	}))
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -46,9 +47,7 @@ func TestNackConsumeTimesHeader(t *testing.T) {
 	err = consumer.Start(context.Background(), func(message pulsar.Message) (bool, error) {
 		fmt.Printf("consume message: %v, headers: %v\n", string(message.Payload()), message.Properties())
 		return true, nil
-	}, checker.PostBlockingChecker(func(message pulsar.Message, err error) checker.CheckStatus {
-		return checker.CheckStatusRejected
-	}))
+	})
 	if err != nil {
 		log.Fatal(err)
 	}

@@ -109,7 +109,8 @@ func (mcs *messageChSelectorImpl) receiveOneByWeight(chs []<-chan ConsumerMessag
 
 // ------ helper ------
 
-var internalGotoReroute = internal.MessageGoto("Reroute")
+var internalGotoReroute = internal.MessageGoto("Reroute") // for consumer
+var internalGotoRoute = internal.MessageGoto("Route")     // for producer
 
 var checkTypeGotoMap = map[internal.CheckType]internal.MessageGoto{
 	checker.CheckTypePreDiscard:  message.GotoDiscard,
@@ -129,4 +130,13 @@ var checkTypeGotoMap = map[internal.CheckType]internal.MessageGoto{
 	checker.CheckTypePostPending:  message.GotoPending,
 	checker.CheckTypePostRetrying: message.GotoRetrying,
 	checker.CheckTypePostReroute:  internalGotoReroute,
+
+	checker.ProduceCheckTypeDiscard:  message.GotoDiscard,
+	checker.ProduceCheckTypeDead:     message.GotoDead,
+	checker.ProduceCheckTypeUpgrade:  message.GotoUpgrade,
+	checker.ProduceCheckTypeDegrade:  message.GotoDegrade,
+	checker.ProduceCheckTypeBlocking: message.GotoBlocking,
+	checker.ProduceCheckTypePending:  message.GotoPending,
+	checker.ProduceCheckTypeRetrying: message.GotoRetrying,
+	checker.ProduceCheckTypeRoute:    internalGotoRoute,
 }

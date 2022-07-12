@@ -4,10 +4,11 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/shenqianjin/soften-client-go/soften/topic"
+
 	"github.com/apache/pulsar-client-go/pulsar/log"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 	"github.com/shenqianjin/soften-client-go/soften/internal/backoff"
-	"github.com/shenqianjin/soften-client-go/soften/topic"
 	"github.com/sirupsen/logrus"
 )
 
@@ -98,7 +99,7 @@ func (v *validator) ValidateAndDefaultConsumerConfig(conf *ConsumerConfig) error
 		if err := v.baseValidateTopicLevel(conf.UpgradeTopicLevel); err != nil {
 			return nil
 		}
-		if topic.OrderOf(conf.UpgradeTopicLevel) <= topic.OrderOf(conf.Level) {
+		if conf.UpgradeTopicLevel.OrderOf() <= conf.Level.OrderOf() {
 			return errors.New(fmt.Sprintf("upgrade level [%v] cannot be lower or equal than the consume level [%v]",
 				conf.UpgradeTopicLevel, conf.Level))
 		}
@@ -107,7 +108,7 @@ func (v *validator) ValidateAndDefaultConsumerConfig(conf *ConsumerConfig) error
 		if err := v.baseValidateTopicLevel(conf.DegradeTopicLevel); err != nil {
 			return nil
 		}
-		if topic.OrderOf(conf.DegradeTopicLevel) >= topic.OrderOf(conf.Level) {
+		if conf.DegradeTopicLevel.OrderOf() >= conf.Level.OrderOf() {
 			return errors.New(fmt.Sprintf("degrade level [%v] cannot be higher or equal than the consume level [%v]",
 				conf.DegradeTopicLevel, conf.Level))
 		}
@@ -128,10 +129,10 @@ func (v *validator) baseValidateTopicLevel(level internal.TopicLevel) error {
 	if !topic.Exists(level) {
 		return errors.New(fmt.Sprintf("not supported topic level: %v", level))
 	}
-	if topic.OrderOf(level) > topic.OrderOf(topic.HighestLevel()) {
+	if level.OrderOf() > topic.HighestLevel().OrderOf() {
 		return errors.New("upgrade/degrade topic level is too high")
 	}
-	if topic.OrderOf(level) < topic.OrderOf(topic.LowestLevel()) {
+	if level.OrderOf() < topic.LowestLevel().OrderOf() {
 		return errors.New(fmt.Sprintf("upgrade/degrade topic level [%v] is too low", level))
 	}
 	return nil
@@ -171,10 +172,14 @@ func (v *validator) validateAndDefaultStatusPolicy(configuredPolicy *StatusPolic
 }
 
 func (v *validator) validateAndDefaultLeveledPolicy(configuredLevels []internal.TopicLevel, configuredPolicies *map[internal.TopicLevel]*LevelPolicy, defaultPolicy *LevelPolicy) error {
+	if *configuredPolicies == nil {
+		*configuredPolicies = make(map[internal.TopicLevel]*LevelPolicy, len(configuredLevels))
+	}
 	for _, level := range configuredLevels {
 		configuredPolicy, ok := (*configuredPolicies)[level]
 		if !ok {
 			(*configuredPolicies)[level] = defaultPolicy
+			continue
 		}
 		if configuredPolicy.ConsumeWeight == 0 {
 			configuredPolicy.ConsumeWeight = defaultPolicy.ConsumeWeight

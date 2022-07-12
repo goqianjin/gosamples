@@ -3,25 +3,27 @@ package topic
 import (
 	"errors"
 	"fmt"
-	"strconv"
-	"strings"
+	"math"
 
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 )
 
-const (
+type Levels []internal.TopicLevel
+
+var (
+	S2  = internal.TopicLevel("S2")
 	S1  = internal.TopicLevel("S1")
 	L3  = internal.TopicLevel("L3")
 	L2  = internal.TopicLevel("L2")
-	L1  = internal.TopicLevel("L1")
+	L1  = internal.DefaultGroundTopicLevelL1
 	B1  = internal.TopicLevel("B1")
 	B2  = internal.TopicLevel("B2")
-	DLQ = internal.TopicLevel("DLQ")
+	DLQ = internal.DefaultDeadTopicLevelDLQ
 )
 
-func LevelValues() []internal.TopicLevel {
-	values := []internal.TopicLevel{
-		S1,
+func LevelValues() Levels {
+	values := Levels{
+		S1, S2,
 		L1, L2, L3,
 		B1, B2,
 		DLQ,
@@ -40,22 +42,22 @@ func LevelOf(level string) (internal.TopicLevel, error) {
 
 }
 
-func OrderOf(level internal.TopicLevel) int {
-	return topicLevelOrders[level]
-}
-
 func Exists(level internal.TopicLevel) bool {
-	_, ok := topicLevelOrders[level]
-	return ok
+	for _, lvl := range LevelValues() {
+		if lvl == level {
+			return true
+		}
+	}
+	return false
 }
 
 func HighestLevel() internal.TopicLevel {
 	var level internal.TopicLevel
-	order := 1
-	for k, v := range topicLevelOrders {
-		if order < v {
-			level = k
-			order = v
+	order := math.MinInt
+	for _, v := range LevelValues() {
+		if order < v.OrderOf() {
+			level = v
+			order = v.OrderOf()
 		}
 	}
 	return level
@@ -63,60 +65,12 @@ func HighestLevel() internal.TopicLevel {
 
 func LowestLevel() internal.TopicLevel {
 	var level internal.TopicLevel
-	order := 1
-	for k, v := range topicLevelOrders {
-		if order > v {
-			level = k
-			order = v
+	order := math.MaxInt
+	for _, v := range LevelValues() {
+		if order > v.OrderOf() {
+			level = v
+			order = v.OrderOf()
 		}
 	}
 	return level
 }
-
-var topicLevelOrders = func() map[internal.TopicLevel]int {
-	values := LevelValues()
-	topicLevelOrders := make(map[internal.TopicLevel]int, len(values))
-	for _, v := range values {
-		if v != DLQ {
-			topicLevelOrders[v] = -100
-			continue
-		}
-		suffix := string(v)[len(string(v))-1:]
-		baseFactor := 1 // default for Lx
-		baseOrder := 0  // default for Lx
-		if strings.HasPrefix(string(v), "S") {
-			baseFactor = 1
-			baseOrder = 100
-		} else if strings.HasPrefix(string(v), "B") {
-			baseOrder = 0
-			baseFactor = -1
-		}
-		no := 0
-		if suffixNo, err := strconv.Atoi(suffix); err == nil {
-			no = suffixNo
-		}
-		topicLevelOrders[v] = baseFactor * (baseOrder + no)
-	}
-	return topicLevelOrders
-}()
-
-func NameSuffixOf(level internal.TopicLevel) (string, error) {
-	if suffix, ok := levelTopicSuffixMap[level]; ok {
-		return suffix, nil
-	} else {
-		return "", errors.New(fmt.Sprintf("invalid persistence level: %v", level))
-	}
-}
-
-var levelTopicSuffixMap = func() map[internal.TopicLevel]string {
-	values := LevelValues()
-	levelTopicSuffixes := make(map[internal.TopicLevel]string, len(values))
-	for _, v := range values {
-		if v == L1 {
-			levelTopicSuffixes[v] = ""
-		} else {
-			levelTopicSuffixes[v] = "-" + string(v)
-		}
-	}
-	return levelTopicSuffixes
-}()

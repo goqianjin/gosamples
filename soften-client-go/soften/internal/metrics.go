@@ -444,7 +444,7 @@ func (v *MetricsProvider) GetProducerMetrics(topic string) *ProducerMetrics {
 }
 
 func (v *MetricsProvider) GetProducerTypedCheckMetrics(topic string, checkType CheckType) *TypedCheckMetrics {
-	labels := prometheus.Labels{"topic": topic, "type": checkType.String()}
+	labels := prometheus.Labels{"topic": topic, "check_type": checkType.String()}
 	metrics := &TypedCheckMetrics{
 		CheckersOpened: v.producerCheckersOpened.With(labels),
 		CheckPassed:    v.producerCheckerCheckPassed.With(labels),

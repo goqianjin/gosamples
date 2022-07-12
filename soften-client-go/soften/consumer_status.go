@@ -17,7 +17,7 @@ type statusConsumer struct {
 	status          internal.MessageStatus
 	policy          *config.StatusPolicy
 	statusMessageCh chan ConsumerMessage // channel used to deliver message to clients
-	handler         internalDecider
+	decider         internalDecider
 }
 
 func newStatusConsumer(parentLogger log.Logger, pulsarConsumer pulsar.Consumer, status internal.MessageStatus, policy *config.StatusPolicy, handler internalDecider) *statusConsumer {
@@ -26,7 +26,7 @@ func newStatusConsumer(parentLogger log.Logger, pulsarConsumer pulsar.Consumer, 
 		Consumer:        pulsarConsumer,
 		status:          status,
 		policy:          policy,
-		handler:         handler,
+		decider:         handler,
 		statusMessageCh: make(chan ConsumerMessage, 10),
 	}
 	go sc.start()
@@ -69,7 +69,7 @@ func (sc *statusConsumer) start() {
 		}
 
 		// reentrant again util meet the reconsume time
-		if ok := sc.handler.Decide(msg, checker.CheckStatusPassed); ok {
+		if ok := sc.decider.Decide(msg, checker.CheckStatusPassed); ok {
 			continue
 		}
 

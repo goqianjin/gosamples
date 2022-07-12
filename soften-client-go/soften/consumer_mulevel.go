@@ -20,6 +20,7 @@ func newMultiLeveledConsumer(parentLogger log.Logger, client *client, conf *conf
 	consumer := &multiLeveledConsumer{
 		logger:        parentLogger.SubLogger(log.Fields{"level": internal.TopicLevelParser.FormatList(conf.Levels)}),
 		levelStrategy: conf.LevelBalanceStrategy,
+		levelPolicies: conf.LevelPolicies,
 		messageCh:     messageCh,
 	}
 	consumer.levelConsumers = make(map[internal.TopicLevel]*leveledConsumer, len(conf.Levels))
@@ -31,11 +32,11 @@ func newMultiLeveledConsumer(parentLogger log.Logger, client *client, conf *conf
 		consumer.levelConsumers[level] = levelConsumer
 	}
 	// start to listen message from all status leveledConsumer
-	go consumer.retrieveStatusMessages()
+	go consumer.retrieveLeveledMessages()
 	return consumer, nil
 }
 
-func (c *multiLeveledConsumer) retrieveStatusMessages() {
+func (c *multiLeveledConsumer) retrieveLeveledMessages() {
 	chs := make([]<-chan ConsumerMessage, len(c.levelConsumers))
 	weights := make([]uint, len(c.levelConsumers))
 	for level, consumer := range c.levelConsumers {
@@ -54,7 +55,7 @@ func (c *multiLeveledConsumer) retrieveStatusMessages() {
 		}
 		// 获取到消息
 		if msg.Message != nil && msg.Consumer != nil {
-			fmt.Printf("received message  msgId: %v -- content: '%s'\n", msg.ID(), string(msg.Payload()))
+			//fmt.Printf("received message  msgId: %v -- content: '%s'\n", msg.ID(), string(msg.Payload()))
 			c.messageCh <- msg
 		} else {
 			panic(fmt.Sprintf("consumed an invalid message: %v", msg))

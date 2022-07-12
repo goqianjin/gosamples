@@ -4,7 +4,7 @@ import (
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 )
 
-// ------ checkpoint ------
+// ------ consume checkpoint ------
 
 type Checkpoint struct {
 	CheckType internal.CheckType
@@ -82,12 +82,45 @@ func PostRerouteChecker(checker AfterCheckFunc) Checkpoint {
 	return Checkpoint{CheckType: CheckTypePostReroute, After: checker}
 }
 
+// ------ produce checkpoint ------
+
+type ProduceCheckpoint struct {
+	CheckType internal.CheckType
+	CheckFunc ProduceCheckFunc
+}
+
+var NilProduceCheckpoint = &ProduceCheckpoint{}
+
 // ------ route checker ------
 
-func RouteChecker(checker internal.RouteChecker) internal.RouteChecker {
-	if checker == nil {
-		return internal.NilRouteChecker
-	} else {
-		return checker
-	}
+func ProduceDiscardChecker(checker ProduceCheckFunc) ProduceCheckpoint {
+	return ProduceCheckpoint{CheckType: ProduceCheckTypeDiscard, CheckFunc: checker}
+}
+
+func ProducePendingChecker(checker ProduceCheckFunc) ProduceCheckpoint {
+	return ProduceCheckpoint{CheckType: ProduceCheckTypePending, CheckFunc: checker}
+}
+
+func ProduceBlockingChecker(checker ProduceCheckFunc) ProduceCheckpoint {
+	return ProduceCheckpoint{CheckType: ProduceCheckTypeBlocking, CheckFunc: checker}
+}
+
+func ProduceRetryingChecker(checker ProduceCheckFunc) ProduceCheckpoint {
+	return ProduceCheckpoint{CheckType: ProduceCheckTypeRetrying, CheckFunc: checker}
+}
+
+func ProduceDeadChecker(checker ProduceCheckFunc) ProduceCheckpoint {
+	return ProduceCheckpoint{CheckType: ProduceCheckTypeDead, CheckFunc: checker}
+}
+
+func ProduceUpgradeChecker(checker ProduceCheckFunc) ProduceCheckpoint {
+	return ProduceCheckpoint{CheckType: ProduceCheckTypeUpgrade, CheckFunc: checker}
+}
+
+func ProduceDegradeChecker(checker ProduceCheckFunc) ProduceCheckpoint {
+	return ProduceCheckpoint{CheckType: ProduceCheckTypeDegrade, CheckFunc: checker}
+}
+
+func ProduceRouteChecker(checker ProduceCheckFunc) ProduceCheckpoint {
+	return ProduceCheckpoint{CheckType: ProduceCheckTypeRoute, CheckFunc: checker}
 }

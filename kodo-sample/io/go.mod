@@ -2,10 +2,9 @@ module github.com/qianjin/kodo-sample/io
 
 go 1.17
 
-
 require (
 	github.com/qianjin/kodo-common v0.0.0
-	github.com/qiniu/go-sdk/v7 v7.12.0
+	github.com/qiniu/go-sdk/v7 v7.12.0 // indirect
 	github.com/stretchr/testify v1.7.1
 )
 
@@ -16,8 +15,8 @@ require (
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b // indirect
 )
 
-require github.com/qianjin/kodo-common v0.0.0
 replace github.com/qianjin/kodo-common v0.0.0 => ../../kodo-common
 
-require github.com/qianjin/kodo-security v0.0.0
+require github.com/qianjin/kodo-security v0.0.0 // indirect
+
 replace github.com/qianjin/kodo-security v0.0.0 => ../../kodo-security

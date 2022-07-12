@@ -4,18 +4,29 @@ import (
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 )
 
-// ------ check type ------
+// ------ produce check type ------
 
 const (
-	/*CheckTypeDiscard  = internal.CheckType("Discard")
-	CheckTypePending  = internal.CheckType("Pending")
-	CheckTypeBlocking = internal.CheckType("Blocking")
-	CheckTypeRetrying = internal.CheckType("Retrying")
-	CheckTypeDead     = internal.CheckType("Dead")
-	CheckTypeUpgrade  = internal.CheckType("Upgrade")
-	CheckTypeDegrade  = internal.CheckType("Degrade")
-	CheckTypeReroute  = internal.CheckType("Reroute")*/
+	ProduceCheckTypeDiscard  = internal.CheckType("Discard")
+	ProduceCheckTypePending  = internal.CheckType("Pending")
+	ProduceCheckTypeBlocking = internal.CheckType("Blocking")
+	ProduceCheckTypeRetrying = internal.CheckType("Retrying")
+	ProduceCheckTypeDead     = internal.CheckType("Dead")
+	ProduceCheckTypeUpgrade  = internal.CheckType("Upgrade")
+	ProduceCheckTypeDegrade  = internal.CheckType("Degrade")
+	ProduceCheckTypeRoute    = internal.CheckType("Route")
+)
 
+func ProduceCheckTypes() []internal.CheckType {
+	values := []internal.CheckType{ProduceCheckTypeDiscard, ProduceCheckTypeDead,
+		ProduceCheckTypeRoute, ProduceCheckTypeUpgrade, ProduceCheckTypeDegrade,
+		ProduceCheckTypeBlocking, ProduceCheckTypePending, ProduceCheckTypeRetrying}
+	return values
+}
+
+// ------ consume check type ------
+
+const (
 	CheckTypePreDiscard  = internal.CheckType("PreDiscard")
 	CheckTypePrePending  = internal.CheckType("PrePending")
 	CheckTypePreBlocking = internal.CheckType("PreBlocking")

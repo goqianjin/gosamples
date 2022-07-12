@@ -14,8 +14,13 @@ import (
 	"github.com/shenqianjin/soften-client-go/soften/config"
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 	"github.com/shenqianjin/soften-client-go/soften/message"
-	"github.com/shenqianjin/soften-client-go/soften/topic"
 )
+
+type Listener interface {
+	Start(ctx context.Context, handler Handler) error
+	StartPremium(ctx context.Context, handler PremiumHandler) error
+	Close()
+}
 
 type consumeListener struct {
 	// pulsar.Consumer
@@ -34,19 +39,10 @@ type consumeListener struct {
 	logTopics            string
 	logLevels            string
 	metrics              *internal.ListenMetrics
-	handleMetrics        sync.Map // map[internal.MessageGoto]*internal.ConsumerHandleGotoMetrics
+	deciderMetrics       sync.Map // map[internal.MessageGoto]*internal.ConsumerHandleGotoMetrics
 }
 
-func (l *consumeListener) getHandleMetrics(msg ConsumerMessage, msgGoto internal.MessageGoto) *internal.ConsumerHandleGotoMetrics {
-	if metrics, ok := l.handleMetrics.Load(msgGoto); ok {
-		return metrics.(*internal.ConsumerHandleGotoMetrics)
-	}
-	metrics := l.client.metricsProvider.GetConsumerHandleGotoMetrics(l.logTopics, l.logLevels, msg.Topic(), msg.Level(), msg.Status(), msgGoto)
-	l.handleMetrics.Store(msgGoto, metrics)
-	return metrics
-}
-
-func newConsumeListener(cli *client, conf config.ConsumerConfig) (*consumeListener, error) {
+func newConsumeListener(cli *client, conf config.ConsumerConfig, checkpoints map[internal.CheckType]*checker.Checkpoint) (*consumeListener, error) {
 	logTopic := conf.Topics[0]
 	if len(conf.Topics) > 1 {
 		logTopic = logTopic + "+" + strconv.Itoa(len(conf.Topics)-1)
@@ -65,11 +61,7 @@ func newConsumeListener(cli *client, conf config.ConsumerConfig) (*consumeListen
 	// collect enables
 	listener.enables = listener.collectEnables(&conf)
 	// initialize checkers
-	/*if checkers, err := newConsumeCheckers(listener.logger, listener.enables, checkpointMap); err != nil {
-		return nil, err
-	} else {
-		listener.checkers = checkers
-	}*/
+	listener.checkers = listener.collectCheckers(listener.enables, checkpoints)
 	// initialize general deciders
 	generalHdOptions := listener.formatGeneralDecidersOptions(conf.Topics[0], &conf)
 	if deciders, err := newGeneralConsumeDeciders(cli, listener, generalHdOptions); err != nil {
@@ -80,10 +72,7 @@ func newConsumeListener(cli *client, conf config.ConsumerConfig) (*consumeListen
 	// initialize level related deciders
 	listener.levelDeciders = make(map[internal.TopicLevel]*leveledConsumeDeciders, len(conf.Levels))
 	for _, level := range conf.Levels {
-		suffix, err := topic.NameSuffixOf(level)
-		if err != nil {
-			return nil, err
-		}
+		suffix := level.TopicSuffix()
 		options := listener.formatLeveledDecidersOptions(conf.Topics[0]+suffix, level, &conf)
 		if deciders, err := newLeveledConsumeDeciders(cli, listener, options, listener.generalDeciders.deadDecider); err != nil {
 			return nil, err
@@ -108,8 +97,8 @@ func newConsumeListener(cli *client, conf config.ConsumerConfig) (*consumeListen
 	return listener, nil
 }
 
-func (l *consumeListener) Start(ctx context.Context, handler Handler, checkpoints ...checker.Checkpoint) error {
-	// convert handler
+func (l *consumeListener) Start(ctx context.Context, handler Handler) error {
+	// convert decider
 	premiumHandler := func(message pulsar.Message) HandleStatus {
 		success, err := handler(message)
 		if success {
@@ -119,35 +108,31 @@ func (l *consumeListener) Start(ctx context.Context, handler Handler, checkpoint
 		}
 	}
 	// forward the call to l.SubscribePremium
-	return l.StartPremium(ctx, premiumHandler, checkpoints...)
+	return l.StartPremium(ctx, premiumHandler)
 }
 
 // StartPremium blocking to consume message one by one. it returns error if any parameters is invalid
-func (l *consumeListener) StartPremium(ctx context.Context, handler PremiumHandler, checkpoints ...checker.Checkpoint) error {
-	// validate handler
+func (l *consumeListener) StartPremium(ctx context.Context, handler PremiumHandler) (err error) {
+	// validate decider
 	if handler == nil {
-		return errors.New("handler parameter is nil")
-	}
-	// validate checkpoints
-	checkpointMap, err := checker.Validator.ValidateConsumeCheckpoint(checkpoints)
-	if err != nil {
-		return err
+		return errors.New("decider parameter is nil")
 	}
 	l.startListenerOnce.Do(func() {
-		// initialize checkers
-		l.checkers = l.collectCheckers(l.enables, checkpointMap)
 		// initialize task pool
 		pool, onceErr := ants.NewPool(int(l.concurrency.CorePoolSize), ants.WithExpiryDuration(60*time.Second))
 		if onceErr != nil {
 			err = onceErr
 			return
 		}
-		l.logger.Info("started to listening...")
-		l.metrics.ListenersRunning.Inc()
-		// receive msg and then consume one by one
-		l.internalStartInPool(ctx, handler, pool)
-		l.metrics.ListenersRunning.Dec()
-		l.logger.Info("ended to listening")
+		// listen in async
+		go func() {
+			l.logger.Info("started to listening...")
+			l.metrics.ListenersRunning.Inc()
+			// receive msg and then consume one by one
+			l.internalStartInPool(ctx, handler, pool)
+			l.metrics.ListenersRunning.Dec()
+			l.logger.Info("ended to listening")
+		}()
 	})
 	return nil
 }
@@ -200,7 +185,7 @@ func (l *consumeListener) internalStartInParallel(ctx context.Context, handler P
 func (l *consumeListener) consume(handler PremiumHandler, msg ConsumerMessage) {
 	/*if checkHandler := l.parseHandler(checker.CheckTypePrePending, msg); checkHandler != nil {
 		if checkHandler.Decide(msg.ConsumerMessage, checker.CheckStatusPassed) {
-			// return to skip biz handler if check handle succeeded
+			// return to skip biz decider if check handle succeeded
 			return
 		}
 		return
@@ -216,7 +201,7 @@ func (l *consumeListener) consume(handler PremiumHandler, msg ConsumerMessage) {
 				continue
 			}
 			if decided := l.internalDecideByPreCheckType(msg, checkType, checkStatus); decided {
-				// return to skip biz handler if check handle succeeded
+				// return to skip biz decider if check handle succeeded
 				return
 			}
 		}
@@ -277,6 +262,7 @@ func (l *consumeListener) internalCheck(checkpoint *wrappedCheckpoint, msg Consu
 	}
 	return checkStatus
 }
+
 func (l *consumeListener) internalDecideByPreCheckType(msg ConsumerMessage, checkType internal.CheckType, checkStatus checker.CheckStatus) (ok bool) {
 	msgGoto, ok := checkTypeGotoMap[checkType]
 	if !ok {
@@ -285,7 +271,6 @@ func (l *consumeListener) internalDecideByPreCheckType(msg ConsumerMessage, chec
 	metrics := l.getHandleMetrics(msg, msgGoto)
 
 	return l.internalDecide4Goto(msgGoto, msg, checkStatus, metrics)
-
 }
 
 func (l *consumeListener) internalDecideByPostCheckType(msg ConsumerMessage, checkType internal.CheckType, checkStatus checker.CheckStatus,
@@ -452,6 +437,15 @@ func (l *consumeListener) formatLeveledDecidersOptions(topic string, level inter
 		DegradeTopicLevel: config.DegradeTopicLevel,
 	}
 	return options
+}
+
+func (l *consumeListener) getHandleMetrics(msg ConsumerMessage, msgGoto internal.MessageGoto) *internal.ConsumerHandleGotoMetrics {
+	if metrics, ok := l.deciderMetrics.Load(msgGoto); ok {
+		return metrics.(*internal.ConsumerHandleGotoMetrics)
+	}
+	metrics := l.client.metricsProvider.GetConsumerHandleGotoMetrics(l.logTopics, l.logLevels, msg.Topic(), msg.Level(), msg.Status(), msgGoto)
+	l.deciderMetrics.Store(msgGoto, metrics)
+	return metrics
 }
 
 func (l *consumeListener) Close() {

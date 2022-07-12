@@ -4,6 +4,8 @@ import (
 	"errors"
 	"time"
 
+	"github.com/shenqianjin/soften-client-go/soften/checker"
+
 	"github.com/apache/pulsar-client-go/pulsar"
 	"github.com/apache/pulsar-client-go/pulsar/log"
 	"github.com/shenqianjin/soften-client-go/soften/config"
@@ -12,8 +14,8 @@ import (
 
 type Client interface {
 	RawClient() pulsar.Client
-	CreateProducer(conf config.ProducerConfig, checkers ...internal.RouteChecker) (*producer, error)
-	CreateListener(conf config.ConsumerConfig) (*consumeListener, error)
+	CreateProducer(conf config.ProducerConfig, checkpoints ...checker.ProduceCheckpoint) (*producer, error)
+	CreateListener(conf config.ConsumerConfig, checkpoints ...checker.Checkpoint) (*consumeListener, error)
 	Close() // close the Client and free associated resources
 }
 
@@ -54,21 +56,31 @@ func (c *client) RawClient() pulsar.Client {
 	return c.Client
 }
 
-func (c *client) CreateProducer(conf config.ProducerConfig, checkers ...internal.RouteChecker) (*producer, error) {
+func (c *client) CreateProducer(conf config.ProducerConfig, checkpoints ...checker.ProduceCheckpoint) (*producer, error) {
 	if conf.Topic == "" {
 		return nil, errors.New("topic is empty")
 	}
-	return newProducer(c, &conf, checkers...)
+	// validate checkpoints
+	checkpointMap, err := checker.Validator.ValidateProduceCheckpoint(checkpoints)
+	if err != nil {
+		return nil, err
+	}
+	return newProducer(c, &conf, checkpointMap)
 
 }
 
-func (c *client) CreateListener(conf config.ConsumerConfig) (*consumeListener, error) {
+func (c *client) CreateListener(conf config.ConsumerConfig, checkpoints ...checker.Checkpoint) (*consumeListener, error) {
 	// validate and default config
 	if err := config.Validator.ValidateAndDefaultConsumerConfig(&conf); err != nil {
 		return nil, err
 	}
+	// validate checkpoints
+	checkpointMap, err := checker.Validator.ValidateConsumeCheckpoint(checkpoints)
+	if err != nil {
+		return nil, err
+	}
 	// create consumer
-	if consumer, err := newConsumeListener(c, conf); err != nil {
+	if consumer, err := newConsumeListener(c, conf, checkpointMap); err != nil {
 		return nil, err
 	} else {
 		return consumer, err

@@ -18,7 +18,7 @@ type finalStatusDecider struct {
 	metrics *internal.ListenerDecideGotoMetrics
 }
 
-func newFinalStatusHandler(cli *client, listener *consumeListener, msgGoto internal.MessageGoto) (*finalStatusDecider, error) {
+func newFinalStatusDecider(cli *client, listener *consumeListener, msgGoto internal.MessageGoto) (*finalStatusDecider, error) {
 	if msgGoto == "" {
 		return nil, errors.New("final message status cannot be empty")
 	}

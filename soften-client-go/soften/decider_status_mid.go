@@ -13,35 +13,35 @@ import (
 	"github.com/shenqianjin/soften-client-go/soften/internal"
 )
 
-type statusHandleOptions struct {
-	topic       string                 // default ${TOPIC}_RETRYING, 固定后缀，不允许定制
-	status      internal.MessageStatus // MessageStatus
-	msgGoto     internal.MessageGoto   // MessageStatus
-	deadHandler internalDecider        //
-	level       internal.TopicLevel
+type statusDeciderOptions struct {
+	topic      string                 // default ${TOPIC}_RETRYING, 固定后缀，不允许定制
+	status     internal.MessageStatus // MessageStatus
+	msgGoto    internal.MessageGoto   // MessageStatus
+	deaDecider internalDecider        //
+	level      internal.TopicLevel
 	//levels      []TopicLevel    //
 	//enable      bool                   // 内部判断使用
 }
 
-type statusHandler struct {
+type statusDecider struct {
 	router  *reRouter
 	policy  *config.StatusPolicy
-	options statusHandleOptions
+	options statusDeciderOptions
 	metrics *internal.ListenerDecideGotoMetrics
 }
 
-func newStatusHandler(client *client, listener *consumeListener, policy *config.StatusPolicy, options statusHandleOptions) (*statusHandler, error) {
+func newStatusDecider(client *client, listener *consumeListener, policy *config.StatusPolicy, options statusDeciderOptions) (*statusDecider, error) {
 	rt, err := newReRouter(client.logger, client.Client, reRouterOptions{Topic: options.topic})
 	if err != nil {
 		return nil, err
 	}
 	metrics := client.metricsProvider.GetListenerLeveledDecideGotoMetrics(listener.logTopics, listener.logLevels, options.level, options.msgGoto)
-	statusRouter := &statusHandler{router: rt, policy: policy, options: options}
+	statusRouter := &statusDecider{router: rt, policy: policy, options: options, metrics: metrics}
 	metrics.DecidersOpened.Inc()
 	return statusRouter, nil
 }
 
-func (hd *statusHandler) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
+func (hd *statusDecider) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
 	/*c := hd.count.Load()
 	ci := 0
 	if c != nil {
@@ -147,10 +147,10 @@ func (hd *statusHandler) Decide(msg pulsar.ConsumerMessage, cheStatus checker.Ch
 	return true
 }
 
-func (hd *statusHandler) tryDeadInternal(msg pulsar.ConsumerMessage) bool {
+func (hd *statusDecider) tryDeadInternal(msg pulsar.ConsumerMessage) bool {
 	//log.Info("dead started .... %v", msg.PublishTime())
-	if hd.options.deadHandler != nil {
-		return hd.options.deadHandler.Decide(msg, checker.CheckStatusPassed)
+	if hd.options.deaDecider != nil {
+		return hd.options.deaDecider.Decide(msg, checker.CheckStatusPassed)
 	}
 
 	if true {
@@ -162,6 +162,6 @@ func (hd *statusHandler) tryDeadInternal(msg pulsar.ConsumerMessage) bool {
 	return false
 }
 
-func (hd *statusHandler) close() {
+func (hd *statusDecider) close() {
 	hd.metrics.DecidersOpened.Dec()
 }

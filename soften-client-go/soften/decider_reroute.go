@@ -12,7 +12,7 @@ import (
 	"github.com/shenqianjin/soften-client-go/soften/message"
 )
 
-type rerouteHandler struct {
+type rerouteDecider struct {
 	routers     map[string]*reRouter
 	routersLock sync.RWMutex
 	client      pulsar.Client
@@ -21,15 +21,15 @@ type rerouteHandler struct {
 	metrics     *internal.ListenerDecideGotoMetrics
 }
 
-func newRerouteHandler(client *client, listener *consumeListener, policy *config.ReroutePolicy) (*rerouteHandler, error) {
+func newRerouteDecider(client *client, listener *consumeListener, policy *config.ReroutePolicy) (*rerouteDecider, error) {
 	routers := make(map[string]*reRouter)
 	metrics := client.metricsProvider.GetListenerDecideGotoMetrics(listener.logTopics, listener.logLevels, internalGotoReroute)
-	rtrHandler := &rerouteHandler{logger: client.logger, routers: routers, policy: policy}
+	rtrHandler := &rerouteDecider{logger: client.logger, routers: routers, policy: policy}
 	metrics.DecidersOpened.Inc()
 	return rtrHandler, nil
 }
 
-func (d *rerouteHandler) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
+func (d *rerouteDecider) Decide(msg pulsar.ConsumerMessage, cheStatus checker.CheckStatus) bool {
 	if !cheStatus.IsPassed() || cheStatus.GetRerouteTopic() == "" {
 		return false
 	}
@@ -74,7 +74,7 @@ func (d *rerouteHandler) Decide(msg pulsar.ConsumerMessage, cheStatus checker.Ch
 	return true
 }
 
-func (d *rerouteHandler) internalSafeGetReRouterInAsync(topic string) (*reRouter, error) {
+func (d *rerouteDecider) internalSafeGetReRouterInAsync(topic string) (*reRouter, error) {
 	d.routersLock.RLock()
 	rtr, ok := d.routers[topic]
 	d.routersLock.RUnlock()
@@ -97,6 +97,6 @@ func (d *rerouteHandler) internalSafeGetReRouterInAsync(topic string) (*reRouter
 	}
 }
 
-func (d *rerouteHandler) close() {
+func (d *rerouteDecider) close() {
 	d.metrics.DecidersOpened.Dec()
 }

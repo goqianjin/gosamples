@@ -7,9 +7,9 @@ type StatusEnables struct {
 	BlockingEnable bool
 	PendingEnable  bool
 	RetryingEnable bool
-	RerouteEnable  bool
 	UpgradeEnable  bool
 	DegradeEnable  bool
 	DeadEnable     bool
 	DiscardEnable  bool
+	RerouteEnable  bool
 }

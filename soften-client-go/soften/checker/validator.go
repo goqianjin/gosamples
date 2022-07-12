@@ -12,6 +12,23 @@ var Validator = &validator{}
 type validator struct {
 }
 
+func (v *validator) ValidateProduceCheckpoint(checkpoints []ProduceCheckpoint) (map[internal.CheckType]*ProduceCheckpoint, error) {
+	// 校验checker: checker可以在对应配置enable=false的情况下存在
+	checkpointMap := make(map[internal.CheckType]*ProduceCheckpoint)
+	for _, checkOpt := range checkpoints {
+		if checkOpt.CheckType == "" {
+			return nil, errors.New(" internal.CheckType can not be empty")
+		}
+		if v.isProduceCheckType(checkOpt.CheckType) {
+			if checkOpt.CheckFunc == nil {
+				return nil, errors.New(fmt.Sprintf("CheckFunc can not be nil for input checkOption: %s", checkOpt.CheckType))
+			}
+		}
+		checkpointMap[checkOpt.CheckType] = &checkOpt
+	}
+	return checkpointMap, nil
+}
+
 func (v *validator) ValidateConsumeCheckpoint(checkpoints []Checkpoint) (map[internal.CheckType]*Checkpoint, error) {
 	// 校验checker: checker可以在对应配置enable=false的情况下存在
 	checkpointMap := make(map[internal.CheckType]*Checkpoint)
@@ -64,6 +81,15 @@ func (v *validator) findCheckpointByType(checkpointMap map[internal.CheckType]*C
 		}
 	}
 	return nil
+}
+
+func (v *validator) isProduceCheckType(checkType internal.CheckType) bool {
+	for _, ct := range ProduceCheckTypes() {
+		if ct == checkType {
+			return true
+		}
+	}
+	return false
 }
 
 func (v *validator) isPreStatusCheckType(checkType internal.CheckType) bool {
