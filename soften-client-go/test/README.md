@@ -16,23 +16,31 @@
     <tr align="left">
         <th rowspan="2">Produce</th><th >send 1msg (Ready)</th><th>单个消息</th><th>Passed</th>
     </tr>
-    <tr align="left"><th>sendAsync 1msg (Ready) </th><th></th><th></th></tr>
+    <tr align="left"><th>sendAsync 1msg (Ready) </th><th></th><th>Passed</th></tr>
     <tr align="left">
-        <th rowspan="2">Produce-Check</th><th >(send) check goto route (L1)</th><th>单个消息</th><th>Passed</th>
+        <th rowspan="10">Produce-Check</th><th >check 1msg goto Route (L1)</th><th>单个消息</th><th>Passed</th>
     </tr>
-    <tr align="left"><th>(sendAsync) check goto route (L1)</th><th></th><th></th></tr>
+    <tr align="left"><th>check 1msg goto Discard</th><th></th><th></th></tr>
+    <tr align="left"><th>check 1msg goto Dead</th><th></th><th></th></tr>
+    <tr align="left"><th>check 1msg goto Pending</th><th></th><th></th></tr>
+    <tr align="left"><th>check 1msg goto Blocking</th><th></th><th></th></tr>
+    <tr align="left"><th>check 1msg goto Retrying</th><th></th><th></th></tr>
+    <tr align="left"><th>check 1msg goto Upgrade</th><th></th><th></th></tr>
+    <tr align="left"><th>check 1msg goto Degrade</th><th></th><th></th></tr>
+    <tr align="left"><th>check 8msg goto ALL goto actions</th><th></th><th></th></tr>
+    <tr align="left"><th>(sendAsync) check 8msg goto ALL goto actions 8msg</th><th></th><th></th></tr>
     <tr align="left">
         <th rowspan="2">Produce-Overall</th><th >send 1msg (Ready) + check goto 1msg (route to L1)</th><th></th><th>Passed</th>
     </tr>
     <tr align="left"><th>sendAsync 1msg (Ready) + check goto 1msg (route to L1) </th><th></th><th></th></tr>
     <!-- listen cases -->
     <tr align="left">
-        <th rowspan="13">Listen</th></th><th>listen 1msg (Ready)</th><th></th><th>send msg before</th>
+        <th rowspan="13">Listen</th></th><th>listen 1msg (Ready)</th><th></th><th>Passed</th>
     </tr>
-    <tr align="left"><th>listen 1msg (Pending)</th><th></th><th>send msg before</th></tr>
-    <tr align="left"><th>listen 1msg (Blocking)</th><th></th><th>send msg before</th></tr>
-    <tr align="left"><th>listen 1msg (Retrying)</th><th></th><th>send msg before</th></tr>
-    <tr align="left"><th>listen 4msg from ALL status</th><th></th><th>send msg before</th></tr>
+    <tr align="left"><th>listen 1msg (Pending)</th><th></th><th>Passed</th></tr>
+    <tr align="left"><th>listen 1msg (Blocking)</th><th></th><th>Passed</th></tr>
+    <tr align="left"><th>listen 1msg (Retrying)</th><th></th><th>Passed</th></tr>
+    <tr align="left"><th>listen 4msg from ALL status</th><th></th><th>Passed</th></tr>
     <tr align="left"><th>listen 1msg from L2</th><th></th><th>send msg before</th></tr>
     <tr align="left"><th>listen 2msg from L1(Ready) and L2</th><th></th><th>send msg before</th></tr>
     <tr align="left"><th>listen 1msg from B1</th><th></th><th>send msg before</th></tr>

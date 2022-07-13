@@ -71,7 +71,58 @@ func newProducer(client *client, conf *config.ProducerConfig, checkpoints map[in
 	return p, nil
 }
 
-func (l *producer) formatDecidersOptions(config *config.ProducerConfig) produceDecidersOptions {
+func (p *producer) collectEnables(conf *config.ProducerConfig) *internal.StatusEnables {
+	enables := internal.StatusEnables{
+		ReadyEnable:    true,
+		DeadEnable:     conf.DeadEnable,
+		DiscardEnable:  conf.DiscardEnable,
+		BlockingEnable: conf.BlockingEnable,
+		PendingEnable:  conf.PendingEnable,
+		RetryingEnable: conf.RetryingEnable,
+		RerouteEnable:  conf.RouteEnable,
+		UpgradeEnable:  conf.UpgradeEnable,
+		DegradeEnable:  conf.DegradeEnable,
+	}
+	return &enables
+}
+
+func (p *producer) collectCheckers(enables *internal.StatusEnables, checkpointMap map[internal.CheckType]*checker.ProduceCheckpoint) map[internal.CheckType]*wrappedProduceCheckpoint {
+	checkers := make(map[internal.CheckType]*wrappedProduceCheckpoint)
+	if enables.RerouteEnable {
+		p.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypeRoute, checkpointMap)
+	}
+	if enables.PendingEnable {
+		p.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypePending, checkpointMap)
+	}
+	if enables.BlockingEnable {
+		p.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypeBlocking, checkpointMap)
+	}
+	if enables.RetryingEnable {
+		p.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypeRetrying, checkpointMap)
+	}
+	if enables.DeadEnable {
+		p.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypeDead, checkpointMap)
+	}
+	if enables.DiscardEnable {
+		p.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypeDiscard, checkpointMap)
+	}
+	if enables.UpgradeEnable {
+		p.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypeUpgrade, checkpointMap)
+	}
+	if enables.DegradeEnable {
+		p.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypeDegrade, checkpointMap)
+	}
+	return checkers
+}
+
+func (p *producer) tryLoadConfiguredChecker(checkers *map[internal.CheckType]*wrappedProduceCheckpoint, checkType internal.CheckType, checkpointMap map[internal.CheckType]*checker.ProduceCheckpoint) {
+	if ckp, ok := checkpointMap[checkType]; ok {
+		metrics := p.client.metricsProvider.GetProducerTypedCheckMetrics(p.topic, checkType)
+		(*checkers)[checkType] = newWrappedProduceCheckpoint(ckp, metrics)
+	}
+}
+
+func (p *producer) formatDecidersOptions(config *config.ProducerConfig) produceDecidersOptions {
 	options := produceDecidersOptions{
 		DiscardEnable:  config.BlockingEnable,
 		DeadEnable:     config.RetryingEnable,
@@ -83,35 +134,6 @@ func (l *producer) formatDecidersOptions(config *config.ProducerConfig) produceD
 		RouteEnable:    config.RouteEnable,
 	}
 	return options
-}
-
-func (l *producer) collectCheckers(enables *internal.StatusEnables, checkpointMap map[internal.CheckType]*checker.ProduceCheckpoint) map[internal.CheckType]*wrappedProduceCheckpoint {
-	checkers := make(map[internal.CheckType]*wrappedProduceCheckpoint)
-	if enables.RerouteEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypeRoute, checkpointMap)
-	}
-	if enables.PendingEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypePending, checkpointMap)
-	}
-	if enables.BlockingEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypeBlocking, checkpointMap)
-	}
-	if enables.RetryingEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypeRetrying, checkpointMap)
-	}
-	if enables.DeadEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypeDead, checkpointMap)
-	}
-	if enables.DiscardEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypeDiscard, checkpointMap)
-	}
-	if enables.UpgradeEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypeUpgrade, checkpointMap)
-	}
-	if enables.DegradeEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.ProduceCheckTypeDegrade, checkpointMap)
-	}
-	return checkers
 }
 
 // Send aim to send message synchronously
@@ -137,6 +159,48 @@ func (p *producer) Send(ctx context.Context, msg *pulsar.ProducerMessage) (pulsa
 	msgId, err := p.Producer.Send(ctx, msg)
 	p.metrics.PublishLatency.Observe(time.Now().Sub(start).Seconds())
 	return msgId, err
+}
+
+// SendAsync send message asynchronously
+func (p *producer) SendAsync(ctx context.Context, msg *pulsar.ProducerMessage,
+	callback func(pulsar.MessageID, *pulsar.ProducerMessage, error)) {
+	start := time.Now()
+	callbackNew := func(msgID pulsar.MessageID, msg *pulsar.ProducerMessage, err error) {
+		p.metrics.PublishLatency.Observe(time.Now().Sub(start).Seconds())
+		callback(msgID, msg, err)
+	}
+	// do checkers
+	for _, checkType := range checker.PreCheckTypes() {
+		if checkpoint, ok := p.checkers[checkType]; ok && checkpoint.CheckFunc != nil {
+			checkStatus := p.internalCheck(checkpoint, msg)
+			if handledDeferFunc := checkStatus.GetHandledDefer(); handledDeferFunc != nil {
+				defer handledDeferFunc()
+			}
+			if !checkStatus.IsPassed() {
+				continue
+			}
+			if _, decided := p.internalSendAsyncDecideByCheckType(ctx, msg, checkType, checkStatus, callback); decided {
+				// return to skip biz decider if check handle succeeded
+				return
+			}
+		}
+	}
+	// send async
+	p.Producer.SendAsync(ctx, msg, callbackNew)
+	return
+}
+
+func (p *producer) internalCheck(checkpoint *wrappedProduceCheckpoint, msg *pulsar.ProducerMessage) checker.CheckStatus {
+	start := time.Now()
+	checkStatus := checkpoint.CheckFunc(msg)
+	latency := time.Now().Sub(start).Seconds()
+	checkpoint.metrics.CheckLatency.Observe(latency)
+	if checkStatus.IsPassed() {
+		checkpoint.metrics.CheckPassed.Inc()
+	} else {
+		checkpoint.metrics.CheckRejected.Inc()
+	}
+	return checkStatus
 }
 
 func (p *producer) internalSendDecideByCheckType(ctx context.Context, msg *pulsar.ProducerMessage, checkType internal.CheckType, checkStatus checker.CheckStatus) (mid pulsar.MessageID, err error, decided bool) {
@@ -198,46 +262,13 @@ func (p *producer) internalGetDeciderByGoto(msgGoto internal.MessageGoto) intern
 	}
 }
 
-func (p *producer) internalCheck(checkpoint *wrappedProduceCheckpoint, msg *pulsar.ProducerMessage) checker.CheckStatus {
-	start := time.Now()
-	checkStatus := checkpoint.CheckFunc(msg)
-	latency := time.Now().Sub(start).Seconds()
-	checkpoint.metrics.CheckLatency.Observe(latency)
-	if checkStatus.IsPassed() {
-		checkpoint.metrics.CheckPassed.Inc()
-	} else {
-		checkpoint.metrics.CheckRejected.Inc()
+func (p *producer) getDecideMetrics(msgGoto internal.MessageGoto) *internal.DecideGotoMetrics {
+	if metrics, ok := p.deciderMetrics.Load(msgGoto); ok {
+		return metrics.(*internal.DecideGotoMetrics)
 	}
-	return checkStatus
-}
-
-// SendAsync send message asynchronously
-func (p *producer) SendAsync(ctx context.Context, msg *pulsar.ProducerMessage,
-	callback func(pulsar.MessageID, *pulsar.ProducerMessage, error)) {
-	start := time.Now()
-	callbackNew := func(msgID pulsar.MessageID, msg *pulsar.ProducerMessage, err error) {
-		p.metrics.PublishLatency.Observe(time.Now().Sub(start).Seconds())
-		callback(msgID, msg, err)
-	}
-	// do checkers
-	for _, checkType := range checker.PreCheckTypes() {
-		if checkpoint, ok := p.checkers[checkType]; ok && checkpoint.CheckFunc != nil {
-			checkStatus := p.internalCheck(checkpoint, msg)
-			if handledDeferFunc := checkStatus.GetHandledDefer(); handledDeferFunc != nil {
-				defer handledDeferFunc()
-			}
-			if !checkStatus.IsPassed() {
-				continue
-			}
-			if _, decided := p.internalSendAsyncDecideByCheckType(ctx, msg, checkType, checkStatus, callback); decided {
-				// return to skip biz decider if check handle succeeded
-				return
-			}
-		}
-	}
-	// send async
-	p.Producer.SendAsync(ctx, msg, callbackNew)
-	return
+	metrics := p.client.metricsProvider.GetProducerDecideGotoMetrics(p.topic, msgGoto.String())
+	p.deciderMetrics.Store(msgGoto, metrics)
+	return metrics
 }
 
 func (p *producer) Close() {
@@ -247,37 +278,6 @@ func (p *producer) Close() {
 	}
 	p.logger.Info("closed soften producer")
 	p.metrics.ProducersOpened.Dec()
-}
-
-func (p *producer) collectEnables(conf *config.ProducerConfig) *internal.StatusEnables {
-	enables := internal.StatusEnables{
-		ReadyEnable:    true,
-		DeadEnable:     conf.DeadEnable,
-		DiscardEnable:  conf.DiscardEnable,
-		BlockingEnable: conf.BlockingEnable,
-		PendingEnable:  conf.PendingEnable,
-		RetryingEnable: conf.RetryingEnable,
-		RerouteEnable:  conf.RouteEnable,
-		UpgradeEnable:  conf.UpgradeEnable,
-		DegradeEnable:  conf.DegradeEnable,
-	}
-	return &enables
-}
-
-func (p *producer) tryLoadConfiguredChecker(checkers *map[internal.CheckType]*wrappedProduceCheckpoint, checkType internal.CheckType, checkpointMap map[internal.CheckType]*checker.ProduceCheckpoint) {
-	if ckp, ok := checkpointMap[checkType]; ok {
-		metrics := p.client.metricsProvider.GetProducerTypedCheckMetrics(p.topic, checkType)
-		(*checkers)[checkType] = newWrappedProduceCheckpoint(ckp, metrics)
-	}
-}
-
-func (p *producer) getDecideMetrics(msgGoto internal.MessageGoto) *internal.DecideGotoMetrics {
-	if metrics, ok := p.deciderMetrics.Load(msgGoto); ok {
-		return metrics.(*internal.DecideGotoMetrics)
-	}
-	metrics := p.client.metricsProvider.GetProducerDecideGotoMetrics(p.topic, msgGoto.String())
-	p.deciderMetrics.Store(msgGoto, metrics)
-	return metrics
 }
 
 // ------ helper ------

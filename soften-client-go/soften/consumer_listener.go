@@ -97,6 +97,93 @@ func newConsumeListener(cli *client, conf config.ConsumerConfig, checkpoints map
 	return listener, nil
 }
 
+func (l *consumeListener) collectEnables(conf *config.ConsumerConfig) *internal.StatusEnables {
+	enables := internal.StatusEnables{
+		ReadyEnable:    true,
+		DeadEnable:     conf.DeadEnable,
+		DiscardEnable:  conf.DiscardEnable,
+		BlockingEnable: conf.BlockingEnable,
+		PendingEnable:  conf.PendingEnable,
+		RetryingEnable: conf.RetryingEnable,
+		RerouteEnable:  conf.RerouteEnable,
+		UpgradeEnable:  conf.UpgradeEnable,
+		DegradeEnable:  conf.DegradeEnable,
+	}
+	return &enables
+}
+
+func (l *consumeListener) collectCheckers(enables *internal.StatusEnables, checkpointMap map[internal.CheckType]*checker.Checkpoint) map[internal.CheckType]*wrappedCheckpoint {
+	checkers := make(map[internal.CheckType]*wrappedCheckpoint)
+	if enables.RerouteEnable {
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePreReroute, checkpointMap)
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostReroute, checkpointMap)
+	}
+	if enables.PendingEnable {
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePrePending, checkpointMap)
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostPending, checkpointMap)
+	}
+	if enables.BlockingEnable {
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePreBlocking, checkpointMap)
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostBlocking, checkpointMap)
+	}
+	if enables.RetryingEnable {
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePreRetrying, checkpointMap)
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostRetrying, checkpointMap)
+	}
+	if enables.DeadEnable {
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePreDead, checkpointMap)
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostDead, checkpointMap)
+	}
+	if enables.DiscardEnable {
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePreDiscard, checkpointMap)
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostDiscard, checkpointMap)
+	}
+	if enables.UpgradeEnable {
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePreUpgrade, checkpointMap)
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostUpgrade, checkpointMap)
+	}
+	if enables.DegradeEnable {
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePreDegrade, checkpointMap)
+		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostDegrade, checkpointMap)
+	}
+	return checkers
+}
+
+func (l *consumeListener) tryLoadConfiguredChecker(checkers *map[internal.CheckType]*wrappedCheckpoint, checkType internal.CheckType, checkpointMap map[internal.CheckType]*checker.Checkpoint) {
+	if ckp, ok := checkpointMap[checkType]; ok {
+		metrics := l.client.metricsProvider.GetListenerTypedCheckMetrics(l.logTopics, l.logLevels, checkType)
+		(*checkers)[checkType] = newWrappedCheckpoint(ckp, metrics)
+	}
+}
+
+func (l *consumeListener) formatGeneralDecidersOptions(topic string, config *config.ConsumerConfig) generalConsumeDeciderOptions {
+	options := generalConsumeDeciderOptions{
+		Topic:         topic,
+		DiscardEnable: config.BlockingEnable,
+		DeadEnable:    config.RetryEnable,
+		RerouteEnable: config.RerouteEnable,
+	}
+	return options
+}
+
+func (l *consumeListener) formatLeveledDecidersOptions(topic string, level internal.TopicLevel, config *config.ConsumerConfig) leveledConsumeDeciderOptions {
+	options := leveledConsumeDeciderOptions{
+		Topic:             topic,
+		Level:             level,
+		BlockingEnable:    config.BlockingEnable,
+		Blocking:          config.Blocking,
+		PendingEnable:     config.PendingEnable,
+		Pending:           config.Pending,
+		RetryingEnable:    config.RetryEnable,
+		Retrying:          config.Retrying,
+		UpgradeEnable:     config.UpgradeEnable,
+		UpgradeTopicLevel: config.UpgradeTopicLevel,
+		DegradeEnable:     config.DegradeEnable,
+		DegradeTopicLevel: config.DegradeTopicLevel,
+	}
+	return options
+}
+
 func (l *consumeListener) Start(ctx context.Context, handler Handler) error {
 	// convert decider
 	premiumHandler := func(message pulsar.Message) HandleStatus {
@@ -302,57 +389,6 @@ func (l *consumeListener) internalDecide4Goto(msgGoto internal.MessageGoto, msg 
 	return decided
 }
 
-func (l *consumeListener) collectCheckers(enables *internal.StatusEnables, checkpointMap map[internal.CheckType]*checker.Checkpoint) map[internal.CheckType]*wrappedCheckpoint {
-	checkers := make(map[internal.CheckType]*wrappedCheckpoint)
-	if enables.RerouteEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePreReroute, checkpointMap)
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostReroute, checkpointMap)
-	}
-	if enables.PendingEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePrePending, checkpointMap)
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostPending, checkpointMap)
-	}
-	if enables.BlockingEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePreBlocking, checkpointMap)
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostBlocking, checkpointMap)
-	}
-	if enables.RetryingEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePreRetrying, checkpointMap)
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostRetrying, checkpointMap)
-	}
-	if enables.DeadEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePreDead, checkpointMap)
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostDead, checkpointMap)
-	}
-	if enables.DiscardEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePreDiscard, checkpointMap)
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostDiscard, checkpointMap)
-	}
-	if enables.UpgradeEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePreUpgrade, checkpointMap)
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostUpgrade, checkpointMap)
-	}
-	if enables.DegradeEnable {
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePreDegrade, checkpointMap)
-		l.tryLoadConfiguredChecker(&checkers, checker.CheckTypePostDegrade, checkpointMap)
-	}
-	return checkers
-}
-
-func (l *consumeListener) tryLoadConfiguredChecker(checkers *map[internal.CheckType]*wrappedCheckpoint, checkType internal.CheckType, checkpointMap map[internal.CheckType]*checker.Checkpoint) {
-	if ckp, ok := checkpointMap[checkType]; ok {
-		metrics := l.client.metricsProvider.GetListenerTypedCheckMetrics(l.logTopics, l.logLevels, checkType)
-		(*checkers)[checkType] = newWrappedCheckpoint(ckp, metrics)
-	}
-}
-
-func (l *consumeListener) getDeciderByCheckType(checkType internal.CheckType, msg ConsumerMessage) internalDecider {
-	if gotoAction, ok := checkTypeGotoMap[checkType]; ok {
-		return l.getDeciderByGotoAction(gotoAction, msg)
-	}
-	return nil
-}
-
 func (l *consumeListener) getDeciderByGotoAction(msgGoto internal.MessageGoto, msg ConsumerMessage) internalDecider {
 	lvl := msg.Level()
 	switch msgGoto {
@@ -394,49 +430,6 @@ func (l *consumeListener) getDeciderByGotoAction(msgGoto internal.MessageGoto, m
 		l.logger.Warnf("invalid msg goto action: %v", msgGoto)
 	}
 	return nil
-}
-
-func (l *consumeListener) collectEnables(conf *config.ConsumerConfig) *internal.StatusEnables {
-	enables := internal.StatusEnables{
-		ReadyEnable:    true,
-		DeadEnable:     conf.DeadEnable,
-		DiscardEnable:  conf.DiscardEnable,
-		BlockingEnable: conf.BlockingEnable,
-		PendingEnable:  conf.PendingEnable,
-		RetryingEnable: conf.RetryingEnable,
-		RerouteEnable:  conf.RerouteEnable,
-		UpgradeEnable:  conf.UpgradeEnable,
-		DegradeEnable:  conf.DegradeEnable,
-	}
-	return &enables
-}
-
-func (l *consumeListener) formatGeneralDecidersOptions(topic string, config *config.ConsumerConfig) generalConsumeDeciderOptions {
-	options := generalConsumeDeciderOptions{
-		Topic:         topic,
-		DiscardEnable: config.BlockingEnable,
-		DeadEnable:    config.RetryEnable,
-		RerouteEnable: config.RerouteEnable,
-	}
-	return options
-}
-
-func (l *consumeListener) formatLeveledDecidersOptions(topic string, level internal.TopicLevel, config *config.ConsumerConfig) leveledConsumeDeciderOptions {
-	options := leveledConsumeDeciderOptions{
-		Topic:             topic,
-		Level:             level,
-		BlockingEnable:    config.BlockingEnable,
-		Blocking:          config.Blocking,
-		PendingEnable:     config.PendingEnable,
-		Pending:           config.Pending,
-		RetryingEnable:    config.RetryEnable,
-		Retrying:          config.Retrying,
-		UpgradeEnable:     config.UpgradeEnable,
-		UpgradeTopicLevel: config.UpgradeTopicLevel,
-		DegradeEnable:     config.DegradeEnable,
-		DegradeTopicLevel: config.DegradeTopicLevel,
-	}
-	return options
 }
 
 func (l *consumeListener) getHandleMetrics(msg ConsumerMessage, msgGoto internal.MessageGoto) *internal.ConsumerHandleGotoMetrics {

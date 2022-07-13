@@ -15,15 +15,36 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestProduceCheck_Route1MsgToL1_BySend(t *testing.T) {
+func TestProduceCheck_RouteToL2_BySend(t *testing.T) {
 	topic := generateTestTopic()
 	routedTopic := topic + "-L2"
+
+	testProduceCheckBySend(t, topic, routedTopic,
+		checker.ProduceRouteChecker(func(msg *pulsar.ProducerMessage) checker.CheckStatus {
+			return checker.CheckStatusPassed.WithRerouteTopic(routedTopic)
+		}))
+}
+
+func TestProduceCheck_RouteToL2_BySend(t *testing.T) {
+	topic := generateTestTopic()
+	routedTopic := topic + "-L2"
+
+	testProduceCheckBySend(t, topic, routedTopic,
+		checker.ProduceRouteChecker(func(msg *pulsar.ProducerMessage) checker.CheckStatus {
+			return checker.CheckStatusPassed.WithRerouteTopic(routedTopic)
+		}))
+}
+
+func testProduceCheckBySend(t *testing.T, topic, storedTopic string, checkers ...checker.ProduceCheckpoint) {
+	if storedTopic == "" {
+		storedTopic = topic
+	}
 	manager := admin.NewAdminManager(defaultPulsarHttpUrl)
 
-	err := manager.Delete(routedTopic)
+	err := manager.Delete(storedTopic)
 	assert.True(t, err == nil || strings.Contains(err.Error(), "404 Not Found"))
 	defer func() {
-		err = manager.Delete(routedTopic)
+		err = manager.Delete(storedTopic)
 		assert.True(t, err == nil || strings.Contains(err.Error(), "404 Not Found"))
 	}()
 
@@ -34,10 +55,7 @@ func TestProduceCheck_Route1MsgToL1_BySend(t *testing.T) {
 		Topic:       topic,
 		RouteEnable: true,
 		Route:       &config.RoutePolicy{ConnectInSyncEnable: true},
-	},
-		checker.ProduceRouteChecker(func(msg *pulsar.ProducerMessage) checker.CheckStatus {
-			return checker.CheckStatusPassed.WithRerouteTopic(routedTopic)
-		}))
+	}, checkers...)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -48,7 +66,7 @@ func TestProduceCheck_Route1MsgToL1_BySend(t *testing.T) {
 	assert.Nil(t, err)
 	fmt.Println(msgID)
 
-	stats, err := manager.Stats(routedTopic)
+	stats, err := manager.Stats(storedTopic)
 	assert.Nil(t, err)
 	assert.Equal(t, 1, stats.MsgInCounter)
 }
